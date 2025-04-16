@@ -1,0 +1,5 @@
+irrigation-daemon for PowerControllerV2.4.2 hardware
+can only accomodate hw version 2.4.2
+Intended to provide single point of direct contact for the MCP23017 GPIO chip used in my garden irrigation PowerController expansion board.
+Client program  irrigation.py  communicates with daemon to ask for status of any relay/pump and to turn
+ them on or off.
