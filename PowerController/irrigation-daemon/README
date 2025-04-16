@@ -1,5 +1,24 @@
 irrigation-daemon for PowerControllerV2.4.2 hardware
 can only accomodate hw version 2.4.2
 Intended to provide single point of direct contact for the MCP23017 GPIO chip used in my garden irrigation PowerController expansion board.
-Client program  irrigation.py  communicates with daemon to ask for status of any relay/pump and to turn
- them on or off.
+Client program  irrigation.py  communicates with daemon to ask for status of any relay/pump and to turn them on or off.
+
+# =====
+# Usage
+#
+# irrigation.py -r {relay-name|all} -a {on|off|status}
+# -r relayname
+# -a action
+# -l log level
+#
+# valve1, valve2, valve3, valve4, valve5, pump1, pump2
+#
+# Examples:
+# ./irrigation.py -r valve1 -a on
+# ./irrigation.py -r valve1 -a off
+# ./irrigation.py -r all -a status
+# ./irrigation.py -r all -a off
+#
+# Example Output:
+# {'relay': 'mag', 'status': 'off'}
+# {'farbed': 'off', 'nearbed': 'off', 'mag': 'off', 'plants': 'off', 'valve5': 'off', 'pump1': 'off', 'pump2': 'off'}
