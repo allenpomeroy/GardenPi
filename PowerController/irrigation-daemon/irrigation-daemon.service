@@ -1,0 +1,14 @@
+[Unit]
+Description=Irrigation Daemon Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/garden/python3/bin/python3 /opt/garden/bin/irrigation-daemon.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
