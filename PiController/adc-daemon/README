@@ -2,3 +2,12 @@ adc-daemon for PiController hardware
 can accomodate hw version 2.2, 5.1, 7.1
 Intended to provide single point of direct contact for the MCP3008 ADC chip used in my PiController expansion boards.
 Client program  adc.py  communicates with daemon to ask for voltage reading on any channel
+
+# Usage:
+#  adc.py {channel} --loop --hwversion --verbose
+#   channel must be 0-7 or "all"
+#   --loop (-l) will display the requested channel(s)
+#          continuously
+#   --hwversion {2.2, 5.1, 7.1} controls the header
+#               displayed to correspond with each
+#               PCB channel layout
