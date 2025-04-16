@@ -1,0 +1,4 @@
+adc-daemon for PiController hardware
+can accomodate hw version 2.2, 5.1, 7.1
+Intended to provide single point of direct contact for the MCP3008 ADC chip used in my PiController expansion boards.
+Client program  adc.py  communicates with daemon to ask for voltage reading on any channel
