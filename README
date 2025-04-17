@@ -19,7 +19,7 @@ Hardware:
     - 3 additional GPIO input lines
 - Native GPIO lines on the Raspberry Pi
   - Rain, Wind sensors
-- Native I2C hardware and software busses (Bus 1, Bus 3)
+- Native I2C hardware (Bus 1) and software (Bus 3) busses
   - Si7021 Temp+Humidity sensors internal and external
 
 Software:
