@@ -5,12 +5,22 @@ Hardware:
 - PiControllerV2.2, 5.1 and 7.1 expansion PCB
   - MCP23017 for 16 additional GPIO lines accessed via I2C
   - MCP3008 Analog Digital Converter accessed via native GPIO SPI interface
+    - Daylight level
+    - Wind Direction
+    - 3x Soil moisture
+    - Water pressure
+    - PowerController 5V monitor
+    - Auxillary 5V input
 - PowerControllerV2.4.2
   - MCP23017 for control of
     - 5 24VAC relays
     - 2 12VDC pump relays
     - 60Hz 120 VAC frequency measurement
     - 3 additional GPIO input lines
+- Native GPIO lines on the Raspberry Pi
+  - Rain, Wind sensors
+- Native I2C hardware and software busses (Bus 1, Bus 3)
+  - Si7021 Temp+Humidity sensors internal and external
 
 Software:
 - python3 now enforcing virtual env needed to install third party libraries such as the Adafruit CircuitPython
