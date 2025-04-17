@@ -32,7 +32,7 @@ Software:
 - Uses Adafruit libraries for both MCP23017 and MCP3008 chips
   https://docs.circuitpython.org/projects/mcp230xx/en/latest/api.html#adafruit_mcp230xx.digital_inout.DigitalInOut
 
-- since many clients could be accessing the MCP23017's or the MCP3008 simultaneously, I've chosen a small number of daemons to provide exclusive access to the chips
+- since many clients could be accessing the MCP23017's or the MCP3008 simultaneously, I've chosen a small number of daemons to provide exclusive access to the chips without reinitializing on every access
 - client programs communicate to the daemons via sockets and implement an exclusive lock to ensure only one client of each daemon is communicating with the daemon at a time
 - daemons / clients:
   - irrigation-daemon.py / irrigation.py - control valves and pumps, turn on/off, get status
