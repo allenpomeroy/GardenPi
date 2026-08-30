@@ -30,7 +30,7 @@ Hardware:
 
 ## Software
 
-# Overview
+### Overview
 
 All software for this project has been completely rewritten to one monolithic project based on
 - handlers to interface with hardware for command, control and queries
