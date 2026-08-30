@@ -56,7 +56,7 @@ All software for this project has been completely rewritten to one monolithic pr
   - create initial admin user / password
   - set any sensor, channel, relay user names and friendly names
 
-# GardenPi Control Web UI
+### GardenPi Control Web UI
 
 A professional web UI (TLS-only, port 8787) for a GardenPi-style irrigation
 system: a configurable-widget **Dashboard**, an **Irrigation** tab for direct
@@ -71,7 +71,7 @@ without hardware.
 Deployed at `/opt/gardenpi/webui`, configured entirely from
 `/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
 
-## Contents
+### Contents
 
 - [Features](#features)
 - [Quick start](#quick-start)
@@ -92,7 +92,7 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
 - [Project layout](#project-layout)
 - [Known limitations / things to verify on your hardware](#known-limitations--things-to-verify-on-your-hardware)
 
-## Features
+### Features
 
 - **Dashboard** with a configurable widget grid: System Status LEDs, Valve
   Quick Status, Sensors, Scheduler & Controller Health. Widget visibility and
@@ -125,7 +125,7 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
   human message, while full detail goes to the logs.
 - **TLS-only**, listening on port 8787.
 
-## Quick start
+### Quick start
 
 This app is deployed at **`/opt/gardenpi/webui`**, with its configuration at
 **`/opt/gardenpi/config/garden.json`** (see [Configuration](#configuration)
@@ -175,7 +175,7 @@ C build toolchain.
 
 ---
 
-## Configuration
+### Configuration
 
 **`/opt/gardenpi/config/garden.json` is a file SHARED across the whole
 GardenPi system** (other handlers, the API, etc.) — this web UI only
