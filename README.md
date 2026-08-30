@@ -2,7 +2,7 @@
 
 This repository contains all the hardware and software components for my garden automation system that is based on Raspberry Pi 4.  It uses the built-in GPIO ports, a I2C based PiController for additional MCP GPIO sensor ports and LEDs, ADC channels and an I2C based PowerController with 5 valve and 2 pump relays.
 
-The overall system drives a Weather Station, uses WeeWx software), various moisture, temperature, humidity sensors, and irrigation control system with 5 valves and 2 pumps. Three status LEDs on the external enclosure (System, Sensors, Irrigation) give an indication of operations. Web pages give Dashboard, Irrigation Control, Schedule, detailed Configuration.
+The overall system drives a Weather Station (feeds WeeWx software), various moisture, temperature, humidity sensors, and irrigation control system with 5 valves and 2 pumps. Three status LEDs on the external enclosure (System, Sensors, Irrigation) give an indication of operations. Web pages give Dashboard, Irrigation Control, Schedule, detailed Configuration.
 
 ## Hardware
 
