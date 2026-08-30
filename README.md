@@ -1,4 +1,60 @@
-# GardenPi Control
+# GardenPi
+
+This repository contains all the hardware and software components for my garden automation system that is based on Raspberry Pi 4.  It uses the built-in GPIO ports, a I2C based PiController for additional MCP GPIO ports, ADC channels and add I2C based PowerController with 5 valve and 2 pump relays.
+
+## Hardware
+
+Hardware:
+- Raspberry Pi 4 running Debian Bookworm Linux
+- Native GPIO lines on the Raspberry Pi
+  - Rain, Wind sensors
+- Native I2C hardware (Bus 1) and software (Bus 3) busses
+  - Si7021 Temp+Humidity sensors internal and external
+- PiControllerV7.1.1 expansion PCB
+  - MCP23017 for 16 additional GPIO lines accessed via I2C
+  - MCP3008 Analog Digital Converter accessed via native GPIO SPI interface
+    - Daylight level 3V3
+    - Wind Direction 3V3
+    - 3x Soil moisture 3V3
+    - Water pressure 5V
+    - PowerController 5V monitor
+    - Auxillary 5V input
+- PowerControllerV2.4.2
+  - MCP23017 for control of
+    - 5 24VAC relays
+    - 2 12VDC pump relays
+    - 60Hz 120 VAC frequency measurement
+    - 3 additional GPIO input lines
+
+## Software
+
+# Overview
+
+All software for this project has been completely rewritten to one monolithic project based on
+- handlers to interface with hardware for command, control and queries
+- comprehensive API which exposes endpoints that provide control and query access to hardware (default port 5000)
+- many clients could be accessing the MCP23017's or the MCP3008 simultaneously, so there is a small number of handlers to provide exclusive access to the chips without reinitialization on each different access
+- client programs communicate to the handlers via unix sockets and implement an exclusive lock to ensure only one client of each handler is communicating with the handler at a time
+- handler / clients:
+  - adc-handler.py / adc.py - read voltage of any of the ADC channels
+  - irrigation-handler.py / irrigation.py - control valves and pumps, turn on/off, get status
+  - led-handler.py / led.py - control LEDs
+- api endpoints
+- webui web interface (default port 8787)
+- python3 virtual env in which all needed third party libraries such as the Adafruit CircuitPython
+- Uses Adafruit libraries for both MCP23017 and MCP3008 chips (installed by install process)
+  https://docs.circuitpython.org/projects/mcp230xx/en/latest/api.html#adafruit_mcp230xx.digital_inout.DigitalInOut
+  adafruit-circuitpython-mcp230xx
+- installation of software
+  - extract gardenpi-x.x.x.tgz to /opt/gardenpi
+  - cd /opt/gardenpi
+  - sudo /opt/gardenpi/scripts/fix-perms.sh
+  - sudo /opt/gardenpi/scripts/install-garden.sh
+  - open browser https://raspberry.local:8787
+  - create initial admin user / password
+  - set any sensor, channel, relay user names and friendly names
+
+# GardenPi Control Web UI
 
 A professional web UI (TLS-only, port 8787) for a GardenPi-style irrigation
 system: a configurable-widget **Dashboard**, an **Irrigation** tab for direct
@@ -12,8 +68,6 @@ without hardware.
 
 Deployed at `/opt/gardenpi/webui`, configured entirely from
 `/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
-
----
 
 ## Contents
 
@@ -35,8 +89,6 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
 - [Versioning](#versioning)
 - [Project layout](#project-layout)
 - [Known limitations / things to verify on your hardware](#known-limitations--things-to-verify-on-your-hardware)
-
----
 
 ## Features
 
@@ -70,8 +122,6 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
   never sees a raw 400/500 or a GardenAPI stack trace; it always gets a short,
   human message, while full detail goes to the logs.
 - **TLS-only**, listening on port 8787.
-
----
 
 ## Quick start
 
