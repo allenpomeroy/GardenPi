@@ -9,7 +9,7 @@ The overall system drives a Weather Station (feeds WeeWx software), various mois
 Hardware:
 - Raspberry Pi 4 running Debian Bookworm Linux
 - Native GPIO lines on the Raspberry Pi
-  - Rain, Wind sensors
+  - Rain, Wind, power Hz sensors
 - Native I2C hardware (Bus 1) and software (Bus 3) busses
   - Si7021 Temp+Humidity sensors internal and external
 - PiControllerV7.1.1 expansion PCB
