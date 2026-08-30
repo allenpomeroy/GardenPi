@@ -1,0 +1,239 @@
+{
+  "config": {
+    "name": "garden.json",
+    "comment": "Configuration file for all GardenPi hardware and software",
+    "version": "3.0.5",
+    "last_changed": "2026-08-29T09:00:00-05:00",
+    "tls_cert_file": "/etc/pki/tls/certs/node.pem",
+    "tls_key_file": "/etc/pki/tls/private/node.key",
+    "application_user": "pi",
+    "application_group": "pi",
+    "socket_group_name": "pi",
+    "socket_timeout_comment": "Socket timeout for handler communication",
+    "socket_timeout": 10.0,
+    "global_log_level": "info",
+    "supported_log_levels": ["critical", "error", "warning", "info", "debug"]
+  },
+  "hardware": {
+    "comment_pin_map": "Each hardware source has one pin_map: a list of {hardware_id, pin, type} entries. hardware_id is read-only (never user editable). type identifies how the pin is used (gpio, led, adc, relay, i2c) by the handler that owns it. For type 'i2c' entries, 'pin' holds the I2C bus number and an additional 'addr' field holds the device's I2C address (e.g. '0x40').",
+    "raspberrypi": {
+      "comment": "Raspberry Pi header GPIO pins read directly by the weather handler",
+      "pin_map": [
+        {"hardware_id": "ground_temp1", "pin": 27, "type": "gpio"},
+        {"hardware_id": "ground_temp2", "pin": 17, "type": "gpio"},
+        {"hardware_id": "wind_speed", "pin": 5, "type": "gpio"},
+        {"hardware_id": "hz", "pin": 6, "type": "gpio"},
+        {"hardware_id": "rain", "pin": 22, "type": "gpio"}
+      ]
+    },
+    "picontroller": {
+      "comment": "Expansion board via Raspberry Pi GPIO header providing extra MCP23017 GPIO controller, plus an MCP3008 ADC",
+      "hw_version": "7.1.1",
+      "log_level": "info",
+      "i2c_addr": "0x24",
+      "led_startup_time_sec": 0.10,
+      "pin_map": [
+        {"hardware_id": "si7021_internal", "pin": 3, "type": "i2c", "addr": "0x40"},
+        {"hardware_id": "si7021_external", "pin": 1, "type": "i2c", "addr": "0x40"},
+        {"hardware_id": "motion_sensor1", "pin": 3, "type": "gpio"},
+        {"hardware_id": "motion_sensor2", "pin": 2, "type": "gpio"},
+        {"hardware_id": "motion_sensor3", "pin": 1, "type": "gpio"},
+        {"hardware_id": "switch1", "pin": 7, "type": "gpio"},
+        {"hardware_id": "switch2", "pin": 6, "type": "gpio"},
+        {"hardware_id": "switch3", "pin": 5, "type": "gpio"},
+        {"hardware_id": "switch4", "pin": 4, "type": "gpio"},
+        {"hardware_id": "sysred", "pin": 8, "type": "led"},
+        {"hardware_id": "sysgreen", "pin": 9, "type": "led"},
+        {"hardware_id": "sysblue", "pin": 10, "type": "led"},
+        {"hardware_id": "led1red", "pin": 11, "type": "led"},
+        {"hardware_id": "led1green", "pin": 12, "type": "led"},
+        {"hardware_id": "led1blue", "pin": 13, "type": "led"},
+        {"hardware_id": "led2red", "pin": 14, "type": "led"},
+        {"hardware_id": "led2green", "pin": 15, "type": "led"},
+        {"hardware_id": "led2blue", "pin": 0, "type": "led"},
+        {"hardware_id": "channel0", "pin": 0, "type": "adc"},
+        {"hardware_id": "channel1", "pin": 1, "type": "adc"},
+        {"hardware_id": "channel2", "pin": 2, "type": "adc"},
+        {"hardware_id": "channel3", "pin": 3, "type": "adc"},
+        {"hardware_id": "channel4", "pin": 4, "type": "adc"},
+        {"hardware_id": "channel5", "pin": 5, "type": "adc"},
+        {"hardware_id": "channel6", "pin": 6, "type": "adc"},
+        {"hardware_id": "channel7", "pin": 7, "type": "adc"}
+      ]
+    },
+    "powercontroller": {
+      "comment": "Expansion irrigation power controller board via I2C channel using MCP23017 GPIO controller",
+      "hw_version": "2.4.2",
+      "i2c_addr": "0x27",
+      "log_level": "info",
+      "pin_map": [
+        {"hardware_id": "valve1", "pin": 10, "type": "relay"},
+        {"hardware_id": "valve2", "pin": 6, "type": "relay"},
+        {"hardware_id": "valve3", "pin": 9, "type": "relay"},
+        {"hardware_id": "valve4", "pin": 7, "type": "relay"},
+        {"hardware_id": "valve5", "pin": 8, "type": "relay"},
+        {"hardware_id": "pump1", "pin": 5, "type": "relay"},
+        {"hardware_id": "pump2", "pin": 11, "type": "relay"}
+      ]
+    }
+  },
+  "handlers": {
+    "api": {
+      "comment": "Central API gateway. Uses sockets to talk to every other handler for concurrency control and exclusive hardware access. Accepts either hardware_id or user_id in queries/commands; always returns user_id when defined, otherwise hardware_id.",
+      "listen_port": "5000",
+      "log_level": "info",
+      "token": "replace-this-with-your-secret-token"
+    },
+    "adc": {
+      "comment": "Reads ADC channel values and reports to caller. hardware_id (channelN) is read-only; user_id/friendly are customer configurable. Responds to queries by either hardware_id or user_id.",
+      "socket": "/run/adc/adc.sock",
+      "log_level": "info",
+      "channel_map": [
+        {"hardware_id": "channel0", "user_id": "daylight", "friendly": "Daylight"},
+        {"hardware_id": "channel1", "user_id": "pwr_ctrl_5v", "friendly": "Pwr5"},
+        {"hardware_id": "channel2", "user_id": "pressure", "friendly": "Pressure"},
+        {"hardware_id": "channel3", "user_id": "misc_5v", "friendly": "Misc"},
+        {"hardware_id": "channel4", "user_id": "moisture1", "friendly": "Mag"},
+        {"hardware_id": "channel5", "user_id": "moisture2", "friendly": "M2"},
+        {"hardware_id": "channel6", "user_id": "moisture3", "friendly": "M3"},
+        {"hardware_id": "channel7", "user_id": "wind_dir", "friendly": "WindDir"}
+      ]
+    },
+    "leds": {
+      "comment": "Handler to control and report on LED state. hardware_id and led labels (group/aliases) are read-only - users cannot change them. Responds to queries/commands for each hardware_id or alias.",
+      "socket": "/run/leds/leds.sock",
+      "log_level": "info",
+      "led_map": [
+        {"hardware_id": "sysred", "group": "sys", "aliases": ["syserror", "error"]},
+        {"hardware_id": "sysgreen", "group": "sys", "aliases": ["sysrun", "boot", "run"]},
+        {"hardware_id": "sysblue", "group": "sys", "aliases": ["syswifi", "wifi"]},
+        {"hardware_id": "led1red", "group": "led1", "aliases": ["sensorerr"]},
+        {"hardware_id": "led1green", "group": "led1", "aliases": ["sensorinit"]},
+        {"hardware_id": "led1blue", "group": "led1", "aliases": ["sensorrun"]},
+        {"hardware_id": "led2red", "group": "led2", "aliases": ["irrigationerr"]},
+        {"hardware_id": "led2green", "group": "led2", "aliases": ["irrigationinit", "valve"]},
+        {"hardware_id": "led2blue", "group": "led2", "aliases": ["irrigationrun"]}
+      ]
+    },
+    "irrigation": {
+      "comment": "Manages valve and pump relays. hardware_id (valveN/pumpN) is read-only; user_id/friendly are customer configurable. Responds to queries/commands for each hardware_id or user_id.",
+      "socket": "/run/irrigation/irrigation.sock",
+      "log_level": "info",
+      "comment_max_valve_run_time": "Maximum time a valve can be active before a safety stop, in seconds (960s=16m)",
+      "max_valve_run_time": 960,
+      "allow_concurrent_valves": false,
+      "no_timeout_relays": ["pump1"],
+      "relay_map": [
+        {"hardware_id": "valve1", "user_id": "farbed", "friendly": "Far Bed"},
+        {"hardware_id": "valve2", "user_id": "nearbed", "friendly": "Near Bed"},
+        {"hardware_id": "valve3", "user_id": "mag", "friendly": "Magnolia"},
+        {"hardware_id": "valve4", "user_id": "plants", "friendly": "Plants"},
+        {"hardware_id": "valve5", "user_id": "valve5", "friendly": "Valve 5"},
+        {"hardware_id": "pump1", "user_id": "outsidelights", "friendly": "Outside Lights"},
+        {"hardware_id": "pump2", "user_id": "pump2", "friendly": "Pump 2"}
+      ],
+      "valid_relay_actions": ["on", "off", "status"]
+    },
+    "weather": {
+      "comment": "Collects environmental data for WeeWx (via CSV files) and API queries. Runs its own socket listener so the API (and other handlers, if needed) can query it directly. input_map defines hardware_id > user_id/friendly for sensors this handler reads directly (Raspberry Pi GPIO pins and its own I2C temperature/humidity sensors). sensor_map lists every sensor this handler is responsible for reporting, including ones it must read via another handler (e.g. the ADC handler).",
+      "log_level": "info",
+      "socket": "/run/weather/weather.sock",
+      "weather_file": "/opt/gardenpi/data/weather.csv",
+      "hz_file": "/opt/gardenpi/data/hz.csv",
+      "input_map": [
+        {"hardware_id": "ground_temp1", "user_id": "ground_temp1", "friendly": "Ground Temp 1"},
+        {"hardware_id": "ground_temp2", "user_id": "ground_temp2", "friendly": "Ground Temp 2"},
+        {"hardware_id": "wind_speed", "user_id": "wind_speed", "friendly": "Wind Speed"},
+        {"hardware_id": "hz", "user_id": "hz", "friendly": "Power Hz"},
+        {"hardware_id": "rain", "user_id": "rain", "friendly": "Rain"},
+        {"hardware_id": "int_temp", "user_id": "int_temp", "friendly": "Int Temp"},
+        {"hardware_id": "int_humidity", "user_id": "int_humidity", "friendly": "Int Humidity"},
+        {"hardware_id": "ext_temp", "user_id": "ext_temp", "friendly": "Ext Temp"},
+        {"hardware_id": "ext_humidity", "user_id": "ext_humidity", "friendly": "Ext Humidity"}
+      ],
+      "comment_sensor_map": "sensor_id -> {source: handler that owns the reading, source_id: hardware_id/user_id to ask that handler for, enabled: bool}. No 'friendly' field here - it's derived from source_id via the owning handler's own map (handlers.adc.channel_map for source 'adc', input_map above for source 'weather'), never duplicated. source 'weather' means input_map above; any other source name is another handler's socket (e.g. 'adc').",
+      "sensor_map": {
+        "s_daylight": {"source": "adc", "source_id": "daylight", "enabled": true},
+        "s_pwr_ctrl_5v": {"source": "adc", "source_id": "pwr_ctrl_5v", "enabled": false},
+        "s_pressure": {"source": "adc", "source_id": "pressure", "enabled": true},
+        "s_misc_5v": {"source": "adc", "source_id": "misc_5v", "enabled": false},
+        "s_moisture1": {"source": "adc", "source_id": "moisture1", "enabled": true},
+        "s_moisture2": {"source": "adc", "source_id": "moisture2", "enabled": false},
+        "s_moisture3": {"source": "adc", "source_id": "moisture3", "enabled": false},
+        "s_wind_dir": {"source": "adc", "source_id": "wind_dir", "enabled": true},
+        "s_ground_temp1": {"source": "weather", "source_id": "ground_temp1", "enabled": false},
+        "s_ground_temp2": {"source": "weather", "source_id": "ground_temp2", "enabled": false},
+        "s_wind_speed": {"source": "weather", "source_id": "wind_speed", "enabled": true},
+        "s_hz": {"source": "weather", "source_id": "hz", "enabled": false},
+        "s_rain": {"source": "weather", "source_id": "rain", "enabled": true},
+        "s_int_temp": {"source": "weather", "source_id": "int_temp", "enabled": true},
+        "s_int_humidity": {"source": "weather", "source_id": "int_humidity", "enabled": true},
+        "s_ext_temp": {"source": "weather", "source_id": "ext_temp", "enabled": true},
+        "s_ext_humidity": {"source": "weather", "source_id": "ext_humidity", "enabled": true}
+      },
+      "sample_periods": {
+        "default": 15,
+        "s_daylight": 30,
+        "s_pwr_ctrl_5v": 1,
+        "s_pressure": 1,
+        "s_misc_5v": 1,
+        "s_moisture1": 30,
+        "s_moisture2": 30,
+        "s_moisture3": 30,
+        "s_wind_dir": 5,
+        "s_ground_temp1": 30,
+        "s_ground_temp2": 30,
+        "s_wind_speed": 5,
+        "s_hz": 2,
+        "s_rain": 10,
+        "s_int_temp": 30,
+        "s_int_humidity": 30,
+        "s_ext_temp": 30,
+        "s_ext_humidity": 30
+      },
+      "reference_values": {
+        "adc_ref_voltage": 3.3,
+        "rain_bucket_size_mm": 0.2794
+      }
+    }
+  },
+  "weewx": {
+    "main_url": "http://gctl.example.us/weewx"
+  },
+  "webui": {
+    "comment": "Configuration for GardenPi Web UI. Uses the API exclusively for all commands and queries - never talks to handler sockets or hardware directly.",
+    "listen_port": "8787",
+    "log_level": "info",
+    "api_base_url": "https://gctl.example.us:5000",
+    "api_token": "replace-this-with-your-secret-token",
+    "comment_api_tls_reject": "Set \"true\" if using real/trusted certificate",
+    "api_tls_reject": "false",
+    "comment_api_timeout": "Timeout (ms) on calls to GardenPi API before we surface a friendly unreachable message",
+    "api_timeout_ms": "4000",
+    "comment_mock_api": "Set true to run against an in-memory simulated GardenPi API, no hardware needed.",
+    "mock_api": "false",
+    "session_secret": "881ac98987fe65765db76deadbeef8081",
+    "comment_data_dir": "Directory for JSON database persistent files users, sessions, schedules, settings",
+    "_data_dir": "/opt/gardenpi/webui/data",
+    "data_dir": "/opt/gardenpi/data",
+    "log_dir": "/opt/gardenpi/logs",
+    "comment_irrigation": "location/type are webui-only display metadata, keyed by hardware_id (the only immutable identifier). user_id/friendly are looked up from handlers.irrigation.relay_map at render time, never duplicated here.",
+    "irrigation": {
+      "valves": [
+        {"hardware_id": "valve3", "location": "Front bed", "type": "valve"},
+        {"hardware_id": "valve4", "location": "Patio pots", "type": "valve"},
+        {"hardware_id": "valve2", "location": "Near bed", "type": "valve"},
+        {"hardware_id": "valve1", "location": "Far bed", "type": "valve"},
+        {"hardware_id": "valve5", "location": "Unassigned", "type": "valve"}
+      ],
+      "pumps": [
+        {"hardware_id": "pump1", "location": "Backyard", "type": "pump"},
+        {"hardware_id": "pump2", "location": "Well/tank", "type": "pump"}
+      ]
+    },
+    "settings": {
+      "session_timeout_minutes": 0,
+      "poll_interval_seconds": 3
+    }
+  }
+}

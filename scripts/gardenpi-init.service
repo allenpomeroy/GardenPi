@@ -1,0 +1,19 @@
+[Unit]
+# v2.0
+Description=GardenPi Init
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/gardenpi/bin/init-picontroller-mcp.py
+RemainAfterExit=yes
+User=root
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gardenpi-init
+# If your script needs environment variables, specify them here
+# Environment=VAR_NAME=value
+
+[Install]
+WantedBy=multi-user.target
+

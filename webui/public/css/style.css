@@ -1,0 +1,406 @@
+/* GardenPi Control v2.1.0 — public/css/style.css */
+:root {
+  --green-900: #1b3a2b;
+  --green-700: #2f6d4f;
+  --green-600: #3a8562;
+  --green-500: #4caf7d;
+  --green-100: #e6f4ec;
+  --amber: #d99a2b;
+  --red: #c0392b;
+  --gray-100: #f5f7f6;
+  --gray-200: #e9edeb;
+  --gray-400: #b8c2bd;
+  --gray-600: #5c6b64;
+  --gray-900: #1f2723;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+
+  /* ---------- Theme-aware semantic tokens (light = default) ----------
+     Everything below is what actually changes between light/dark. Color
+     rules elsewhere in this file should reference these (--bg, --surface,
+     --text, --text-muted, --border, --code-bg) rather than raw hex/gray-*
+     values, so [data-theme="dark"] below can repaint the whole app. */
+  --bg: var(--gray-100);
+  --surface: #fff;
+  --surface-alt: #fbfcfb;
+  --text: var(--gray-900);
+  --text-muted: var(--gray-600);
+  --border: var(--gray-200);
+  --border-strong: var(--gray-400);
+  --code-chip-bg: rgba(0,0,0,0.06);
+  --code-bg: var(--gray-900);
+  --code-text: #e7f0ea;
+  --overlay: rgba(0,0,0,0.35);
+
+  --tint-amber-bg: #fff8e6;
+  --tint-amber-text: #7a5b00;
+  --tint-red-bg: #fbe9e7;
+  --tint-red-bg-strong: #fdecea;
+  --tint-red-text: #7a2418;
+  --tint-green-bg: #dff3e6;
+}
+
+/* ---------- Dark theme ----------
+   Applied by JS via a `data-theme="dark"` attribute on <html>, so the
+   choice (light/dark/system) persists per-browser and can be switched
+   live without a reload. See js/app.js for the selector logic. */
+[data-theme="dark"] {
+  --bg: #14201a;
+  --surface: #1c2b23;
+  --surface-alt: #223226;
+  --text: #e8f0ea;
+  --text-muted: #9db3a7;
+  --border: #2d4038;
+  --border-strong: #3d564a;
+  --code-chip-bg: rgba(255,255,255,0.08);
+  --code-bg: #0e1712;
+  --code-text: #d7e9de;
+  --overlay: rgba(0,0,0,0.55);
+
+  --gray-100: #14201a;
+  --gray-200: #2d4038;
+  --gray-400: #3d564a;
+  --gray-600: #9db3a7;
+  --gray-900: #e8f0ea;
+
+  --green-100: #1f3b2c;
+
+  --tint-amber-bg: #3a2f10;
+  --tint-amber-text: #f0c876;
+  --tint-red-bg: #3a2320;
+  --tint-red-bg-strong: #3a1e1b;
+  --tint-red-text: #f0a99c;
+  --tint-green-bg: #1d3a29;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+}
+
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+input, select, textarea {
+  background: var(--surface); color: var(--text);
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.hidden { display: none !important; }
+
+/* ---------- Auth screens ---------- */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--green-900), var(--green-700));
+}
+.auth-card {
+  background: var(--surface);
+  padding: 2.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 380px;
+}
+.auth-card h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.auth-sub { color: var(--gray-600); margin-bottom: 1.5rem; font-size: 0.9rem; }
+.auth-card form { display: flex; flex-direction: column; gap: 0.9rem; }
+.auth-card label { display: flex; flex-direction: column; font-size: 0.85rem; font-weight: 600; gap: 0.35rem; }
+.auth-card input {
+  font-size: 1rem; padding: 0.6rem 0.7rem; border-radius: 8px; border: 1px solid var(--gray-400);
+}
+.auth-error { color: var(--red); font-size: 0.85rem; min-height: 1.1em; margin: 0; }
+
+/* ---------- App shell ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 1.5rem;
+  background: var(--green-900); color: #fff;
+  padding: 0 1.25rem; height: 58px;
+}
+.brand { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+.tabs { display: flex; gap: 0.25rem; flex: 1; }
+.tab-btn {
+  background: transparent; border: none; color: #d7e6dd; padding: 0.6rem 0.9rem;
+  border-radius: 8px; font-size: 0.92rem; cursor: pointer;
+}
+.tab-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.tab-btn.active { background: rgba(255,255,255,0.16); color: #fff; font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: 0.9rem; font-size: 0.85rem; }
+.btn-link { background: none; border: none; color: #d7e6dd; cursor: pointer; text-decoration: underline; font-size: 0.85rem; }
+.badge {
+  background: rgba(255,255,255,0.14); padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem;
+}
+.version-badge { background: transparent; color: #a9c2b6; padding: 0.25rem 0; font-size: 0.72rem; }
+.theme-select {
+  background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 6px; padding: 0.25rem 0.5rem; font-size: 0.78rem; cursor: pointer;
+}
+.theme-select:hover { background: rgba(255,255,255,0.16); }
+.theme-select option { color: var(--gray-900); background: var(--surface); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.1rem; }
+.panel-header h2 { margin: 0; font-size: 1.25rem; }
+.hint { color: var(--gray-600); font-size: 0.85rem; }
+
+.card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 1.1rem 1.25rem; margin-bottom: 1rem;
+}
+
+/* ---------- Buttons ---------- */
+.btn-primary, .btn-secondary, .btn-danger {
+  border: none; border-radius: 8px; padding: 0.55rem 1rem; font-size: 0.88rem; cursor: pointer; font-weight: 600;
+}
+.btn-primary { background: var(--green-600); color: #fff; }
+.btn-primary:hover { background: var(--green-700); }
+.btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled { background: var(--gray-400); color: var(--gray-600); cursor: not-allowed; }
+.btn-secondary { background: var(--gray-200); color: var(--gray-900); }
+.btn-secondary:hover { background: var(--gray-400); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-small { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+/* ---------- Dashboard widgets ---------- */
+.widget-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;
+}
+.widget { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; }
+.widget h3 { margin: 0 0 0.8rem; font-size: 0.95rem; color: var(--text-muted); }
+.widget-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.widget-header-row h3 { margin: 0; }
+.btn-link-subtle { background: none; border: none; color: var(--green-700); text-decoration: underline; cursor: pointer; font-size: 0.78rem; padding: 0; }
+
+.led-vertical { display: flex; flex-direction: column; gap: 0.7rem; }
+.led-row-v { display: flex; align-items: center; gap: 0.7rem; }
+.led-circle { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; background: var(--gray-400); }
+.led-circle.red   { background: var(--red);   box-shadow: 0 0 8px var(--red); }
+.led-circle.green { background: #2ecc71;      box-shadow: 0 0 8px #2ecc71; }
+.led-circle.blue  { background: #2f8fd6;      box-shadow: 0 0 8px #2f8fd6; }
+.led-circle.blink { animation: ledBlink 1s steps(1, end) infinite; }
+@keyframes ledBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.15; } }
+.led-text { display: flex; flex-direction: column; line-height: 1.25; }
+.led-text .led-group-name { font-weight: 700; font-size: 0.88rem; }
+.led-text .led-status-label { font-size: 0.8rem; color: var(--gray-600); }
+
+.mini-stat { display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.9rem; border-bottom: 1px dashed var(--gray-200); }
+.mini-stat:last-child { border-bottom: none; }
+.mini-stat .val { font-weight: 700; }
+
+.event-row { font-size: 0.82rem; padding: 0.3rem 0; border-bottom: 1px dashed var(--gray-200); color: var(--gray-600); }
+.event-row:last-child { border-bottom: none; }
+.event-row .t { color: var(--gray-400); margin-right: 0.4rem; }
+
+.customize-panel {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.25rem; margin-bottom: 1rem;
+  display: flex; flex-wrap: wrap; gap: 1rem;
+}
+.customize-panel label { font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+
+/* ---------- Recent Activity feed panel ---------- */
+.activity-panel { grid-column: span 2; margin-top: 0; }
+.activity-log-wrap { position: relative; }
+.activity-log-box {
+  max-height: 340px; overflow-y: scroll; overflow-x: hidden;
+  padding-right: 0.6rem;
+}
+/* The native scrollbar is unreliable to show here: several platforms (macOS
+   trackpad's default "overlay" scrollbars, some Linux/Chrome configs) hide it
+   until an active scroll gesture regardless of overflow-y:scroll or
+   ::-webkit-scrollbar styling. Hide the native one and draw our own
+   always-visible indicator instead, kept in sync via JS (updateActivityScrollbar). */
+.activity-log-box { scrollbar-width: none; -ms-overflow-style: none; }
+.activity-log-box::-webkit-scrollbar { display: none; }
+.activity-scrollbar-track {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 5px;
+  background: var(--gray-200); border-radius: 4px; pointer-events: none;
+}
+.activity-scrollbar-thumb {
+  position: absolute; right: 0; width: 5px; min-height: 24px;
+  background: var(--gray-400); border-radius: 4px;
+}
+
+/* ---------- Valve cards ---------- */
+.valve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.valve-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; }
+.valve-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+.valve-card-head .name { font-weight: 700; font-size: 1.02rem; }
+.valve-card-head .loc { color: var(--gray-600); font-size: 0.8rem; }
+.state-pill { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+.state-pill.on { background: var(--tint-green-bg); color: var(--green-700); }
+.state-pill.off { background: var(--gray-200); color: var(--gray-600); }
+.state-pill.unknown { background: var(--tint-red-bg); color: var(--red); }
+.valve-actions { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.9rem; flex-wrap: wrap; }
+.valve-actions input[type=number] { width: 70px; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--gray-400); }
+.valve-note { font-size: 0.78rem; color: var(--gray-600); margin-top: 0.5rem; }
+
+/* ---------- Schedule ---------- */
+.valve-schedule-block { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 1rem; overflow: hidden; }
+.valve-schedule-block h3 { margin: 0; padding: 0.9rem 1.15rem; background: var(--green-100); font-size: 0.95rem; }
+table.schedule-table { width: 100%; border-collapse: collapse; }
+table.schedule-table th, table.schedule-table td { text-align: left; padding: 0.6rem 1.15rem; font-size: 0.87rem; border-bottom: 1px solid var(--gray-200); }
+table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.th-checkbox { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.02em; cursor: pointer; }
+.running-badge { background: #2f8fd6; color: #fff; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+.row-actions { display: flex; gap: 0.4rem; }
+
+/* ---------- Settings ---------- */
+.settings-card h3 { margin: 0 0 0.7rem; font-size: 0.95rem; }
+.inline-label { display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; font-weight: 600; gap: 1rem; margin-bottom: 0.4rem; }
+.inline-label select { padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--gray-400); }
+.field-hint { color: var(--gray-600); font-size: 0.8rem; margin: 0.2rem 0 0; }
+.inline-checkbox { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.6rem; }
+.save-status { font-size: 0.85rem; color: var(--green-700); margin-top: 0.6rem; }
+
+/* ---------- Modal ---------- */
+.modal { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal-card { background: var(--surface); border-radius: var(--radius); padding: 1.5rem; width: 100%; max-width: 380px; box-shadow: var(--shadow); }
+.modal-card h3 { margin-top: 0; }
+.modal-card form { display: flex; flex-direction: column; gap: 0.8rem; }
+.modal-card label { display: flex; flex-direction: column; font-size: 0.85rem; font-weight: 600; gap: 0.3rem; }
+.modal-card input, .modal-card select { padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid var(--gray-400); font-size: 0.9rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 0.4rem; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: var(--code-bg); color: var(--code-text); padding: 0.7rem 1.2rem; border-radius: 8px;
+  font-size: 0.88rem; box-shadow: var(--shadow); z-index: 100; max-width: 90vw;
+}
+.toast.error { background: var(--red); }
+.toast.success { background: var(--green-700); }
+
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; height: auto; padding: 0.6rem; gap: 0.6rem; }
+  .tabs { order: 3; width: 100%; overflow-x: auto; }
+}
+
+.section-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-600); margin: 1.1rem 0 0.6rem; }
+
+/* ---------- Configuration tab (garden.json editor) ---------- */
+.config-warning {
+  background: var(--tint-amber-bg); border-left: 4px solid var(--amber); color: var(--tint-amber-text);
+  font-size: 0.85rem; line-height: 1.55;
+}
+.config-warning code { background: var(--code-chip-bg); padding: 0.05rem 0.35rem; border-radius: 4px; }
+.config-danger { color: var(--red); }
+.config-tree { display: flex; flex-direction: column; gap: 1rem; }
+.config-section { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; }
+.config-section > summary {
+  cursor: pointer; font-weight: 700; font-size: 1rem; list-style: none;
+  text-align: left;
+}
+.config-section > summary::-webkit-details-marker { display: none; }
+.config-section > summary::before { content: '▸'; margin-right: 0.5rem; color: var(--gray-600); }
+.config-section[open] > summary::before { content: '▾'; }
+.config-node { margin-left: 0.9rem; padding-left: 0.9rem; border-left: 2px solid var(--gray-200); margin-top: 0.7rem; }
+.config-node-title { font-weight: 600; font-size: 0.85rem; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 0.3rem; }
+.config-field { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.35rem 0; flex-wrap: wrap; }
+.config-field > label { font-size: 0.85rem; font-weight: 600; min-width: 170px; flex-shrink: 0; padding-top: 0.4rem; }
+.config-field input[type=text], .config-field input[type=number], .config-field input[type=password] {
+  flex: 1; min-width: 140px; padding: 0.45rem 0.6rem; border-radius: 6px; border: 1px solid var(--gray-400); font-size: 0.85rem;
+}
+.config-field input[type=checkbox] { margin-top: 0.5rem; }
+.config-comment { font-size: 0.78rem; color: var(--gray-600); font-style: italic; flex-basis: 100%; margin: 0.15rem 0 0; }
+.config-array-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+.config-array-row input { flex: 1; }
+.config-array-item-card { border: 1px solid var(--gray-200); border-radius: 8px; padding: 0.8rem 0.9rem 0.4rem; margin-bottom: 0.7rem; }
+.config-btn-remove { background: var(--red); color: #fff; border: none; border-radius: 6px; padding: 0.25rem 0.55rem; font-size: 0.72rem; cursor: pointer; flex-shrink: 0; }
+.config-btn-add { background: var(--gray-200); border: none; border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.8rem; cursor: pointer; margin-top: 0.3rem; }
+.config-btn-add:hover { background: var(--gray-400); }
+.config-reveal-btn { background: none; border: none; color: var(--green-700); font-size: 0.75rem; cursor: pointer; text-decoration: underline; padding: 0.45rem 0; }
+.config-array-of-primitives { display: flex; flex-direction: column; flex: 1; min-width: 220px; }
+
+.config-common-card { border: 2px solid var(--green-500); }
+.config-common-card h3 { color: var(--green-700); margin-top: 0; }
+#config-advanced-details > summary { color: var(--gray-600); margin-bottom: 0.6rem; }
+/* Row 4 (Advanced): same green border as rows 1-3's cards, and the same
+   1rem gap above it as sits between rows 1-2 and 2-3 inside #config-common. */
+#config-advanced-details { border: 2px solid var(--green-500); margin-top: 1rem; }
+
+/* Common section: one card per area (GardenPi System / Web UI / API) side
+   by side, then a full-width Software card below holding ADC/LEDs/
+   Irrigation/Weather as its own sub-groups. Card titles use a normal
+   mixed-case bold <h3> (matching the dashboard widget cards) rather than
+   the small all-caps .config-node-title used for sub-groups within them. */
+.config-card-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem; margin-bottom: 1rem;
+}
+.config-area-card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 1.1rem 1.25rem; border: 2px solid var(--green-500);
+}
+.config-area-card h3 {
+  margin: 0 0 0.8rem; font-size: 1rem; font-weight: 700;
+  color: var(--green-700); text-transform: none; letter-spacing: normal;
+}
+.config-software-card { grid-column: 1 / -1; }
+.config-software-card .config-node:first-child { margin-top: 0.3rem; }
+/* Users card: same full-width treatment as Software, but its own row
+   between the 3-up card grid and the Software card (see the fixed order
+   in renderCommonSettings's template) -- users.json content, wide enough
+   for the username/created/actions table to breathe instead of being
+   squeezed into a 1/3-width card. */
+.config-users-card { grid-column: 1 / -1; margin-bottom: 1rem; }
+.config-users-card table.config-map-table { max-width: 640px; }
+
+.config-danger-banner {
+  background: var(--tint-red-bg-strong); border: 1px solid var(--red); color: var(--tint-red-text);
+  border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1rem;
+  font-size: 0.85rem; line-height: 1.5;
+}
+.config-danger-banner strong {
+  color: var(--red); text-transform: uppercase; letter-spacing: 0.03em; margin-right: 0.3rem;
+}
+.config-danger-banner code { background: var(--code-chip-bg); padding: 0.05rem 0.35rem; border-radius: 4px; }
+
+.config-readonly-value {
+  flex: 1; min-width: 140px; margin: 0; padding: 0.45rem 0.6rem;
+  background: var(--gray-100); border-radius: 6px; font-size: 0.85rem; color: var(--gray-600);
+}
+
+/* API reference (Advanced > API) - swagger-style endpoint cards, static
+   documentation only, no editable fields. */
+.api-endpoint {
+  border: 1px solid var(--gray-200); border-radius: 8px;
+  padding: 0.9rem 1rem; margin-bottom: 0.9rem; background: var(--surface-alt);
+}
+.api-endpoint-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.api-method {
+  display: inline-block; padding: 0.15rem 0.55rem; border-radius: 5px;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; color: #fff;
+}
+.api-method.get { background: #2f6d9e; }
+.api-method.post { background: #b3691d; }
+.api-path { font-family: monospace; font-size: 0.88rem; font-weight: 600; color: var(--gray-900); }
+.api-auth-badge {
+  margin-left: auto; padding: 0.15rem 0.55rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700;
+}
+.api-auth-badge.required { background: var(--tint-red-bg); color: var(--red); }
+.api-auth-badge.none { background: var(--tint-green-bg); color: var(--green-700); }
+.api-endpoint-desc { font-size: 0.85rem; color: var(--gray-600); margin: 0 0 0.6rem; }
+.api-endpoint h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-600); margin: 0.7rem 0 0.3rem; }
+.api-endpoint pre {
+  background: var(--code-bg); color: var(--code-text); padding: 0.7rem 0.85rem;
+  border-radius: 6px; font-size: 0.8rem; overflow-x: auto; margin: 0 0 0.5rem;
+  white-space: pre-wrap; word-break: break-word;
+}
+.api-endpoint table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 0.5rem; }
+.api-endpoint table th, .api-endpoint table td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--gray-200); }
+.api-endpoint table th { color: var(--gray-600); font-weight: 600; }
+.api-endpoint code { background: var(--code-chip-bg); padding: 0.05rem 0.35rem; border-radius: 4px; font-size: 0.82rem; }
+
+.config-map-table { width: 100%; border-collapse: collapse; margin: 0.4rem 0 0.9rem; font-size: 0.85rem; }
+.config-map-table th, .config-map-table td { text-align: left; padding: 0.35rem 0.55rem; border-bottom: 1px solid var(--gray-200); }
+.config-map-table th { font-weight: 600; color: var(--gray-600); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.02em; }
+.config-map-table td .config-readonly-value { min-width: unset; display: inline-block; }
+.config-map-table input[type=text] { width: 100%; box-sizing: border-box; padding: 0.3rem 0.5rem; border: 1px solid var(--border-strong); border-radius: 5px; font-size: 0.85rem; }
+.config-map-table input[type=checkbox] { transform: scale(1.1); }

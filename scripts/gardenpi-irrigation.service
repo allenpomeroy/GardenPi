@@ -1,0 +1,23 @@
+[Unit]
+# v2.0
+Description=GardenPi Irrigation
+After=network.target gardenpi-adc.service
+Requires=gardenpi-init.service
+
+[Service]
+User=pi
+Group=pi
+Type=simple
+ExecStart=/opt/gardenpi/bin/irrigation-handler.py
+ExecStop=/opt/gardenpi/bin/leds.py irrigationerr on
+Restart=always
+RestartSec=5
+RuntimeDirectory=irrigation
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gardenpi-irrigation
+
+
+[Install]
+WantedBy=multi-user.target
+

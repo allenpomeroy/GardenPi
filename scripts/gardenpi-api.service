@@ -1,0 +1,36 @@
+[Unit]
+# v2.1
+# Sequencing: the API is a socket CLIENT of every hardware handler (adc,
+# irrigation, leds, and now weather too), so it must start after all four
+# per restart-services.sh's mandatory order
+# (leds -> adc -> irrigation -> weather -> api -> webui).
+Description=GardenPi API
+After=network.target gardenpi-adc.service gardenpi-irrigation.service gardenpi-leds.service gardenpi-weather.service
+Wants=gardenpi-adc.service gardenpi-irrigation.service gardenpi-leds.service gardenpi-weather.service
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/opt/gardenpi/bin
+ExecStart=/opt/gardenpi/python3/bin/gunicorn \
+    --bind 0.0.0.0:5000 \
+    --workers 2 \
+    --timeout 60 \
+    --graceful-timeout 10 \
+    --preload \
+    --certfile /etc/pki/tls/certs/node.pem \
+    --keyfile /etc/pki/tls/private/node.key \
+    --access-logfile - \
+    --error-logfile - \
+    'api:create_app()'
+Restart=on-failure
+RestartSec=5
+#WatchdogSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gardenpi-api
+
+
+[Install]
+WantedBy=multi-user.target

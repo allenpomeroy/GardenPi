@@ -1,0 +1,41 @@
+[Unit]
+# v2.1
+# Sequencing fix: this used to depend on gardenpi-api.service, which is
+# backwards - restart-services.sh's mandatory startup order is
+# leds -> adc -> irrigation -> weather -> api -> webui (the API is a
+# CLIENT of this handler's socket, same as it is of adc/irrigation/leds,
+# so weather must be up BEFORE the API starts, not after). This handler
+# is also itself a client of the ADC handler's socket, so it depends on
+# that too.
+Description=GardenPi Weather
+After=network.target gardenpi-adc.service gardenpi-irrigation.service
+Requires=gardenpi-init.service
+Wants=gardenpi-adc.service gardenpi-irrigation.service
+
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=/opt/gardenpi/bin/weather-handler.py
+ExecStop=/opt/gardenpi/bin/leds.py sensorerr on
+# v2.1: weather-handler.py now runs its own Unix socket listener
+# (handlers.weather.socket, /run/weather/weather.sock) so the API and
+# other handlers can query it directly - RuntimeDirectory ensures
+# /run/weather exists, owned by User/Group above, before the handler
+# tries to bind its socket there (matches the adc/irrigation/leds units).
+RuntimeDirectory=weather
+# Set working directory to help with relative paths
+WorkingDirectory=/opt/gardenpi/data
+# Standard output/error handling
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gardenpi-weather
+# Restart configuration - limited restarts on crash
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[
+  {
+    "ts": "2026-08-30T12:07:08.232Z",
+    "type": "valve_off",
+    "valveId": "plants",
+    "valveName": "Plants",
+    "source": "schedule"
+  }
+]

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<!-- GardenPi Control v2.1.0 — public/index.html -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GardenPi Control</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="alternate icon" href="favicon.ico" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="manifest" href="site.webmanifest" />
+
+<!-- Applied before CSS loads / before <body> paints, so there is no flash
+     of the wrong theme on load. Kept in sync with the "gp_theme" storage
+     key and THEME_MEDIA logic in js/app.js -- see applyTheme() there for
+     the single source of truth on resolving 'system'. -->
+<script>
+(function () {
+  try {
+    var pref = localStorage.getItem('gp_theme') || 'system';
+    var resolved = pref === 'system'
+      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : pref;
+    if (resolved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  } catch (e) { /* localStorage unavailable (privacy mode, etc.) -- default to light */ }
+})();
+</script>
+
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ============ AUTH SCREENS ============ -->
+<div id="screen-setup" class="auth-screen hidden">
+  <div class="auth-card">
+    <h1>🌿 GardenPi Control</h1>
+    <p class="auth-sub">Welcome! Create the administrator account to get started.</p>
+    <form id="form-setup">
+      <label>Username
+        <input type="text" id="setup-username" autocomplete="username" required minlength="3" />
+      </label>
+      <label>Password
+        <input type="password" id="setup-password" autocomplete="new-password" required minlength="8" />
+      </label>
+      <label>Confirm Password
+        <input type="password" id="setup-password2" autocomplete="new-password" required minlength="8" />
+      </label>
+      <button type="submit">Create Account</button>
+      <p class="auth-error" id="setup-error"></p>
+    </form>
+  </div>
+</div>
+
+<div id="screen-login" class="auth-screen hidden">
+  <div class="auth-card">
+    <h1>🌿 GardenPi Control</h1>
+    <p class="auth-sub">Sign in to continue.</p>
+    <form id="form-login">
+      <label>Username
+        <input type="text" id="login-username" autocomplete="username" required />
+      </label>
+      <label>Password
+        <input type="password" id="login-password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Sign In</button>
+      <p class="auth-error" id="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand">🌿 GardenPi Control</div>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="irrigation">Irrigation</button>
+      <button class="tab-btn" data-tab="schedule">Schedule</button>
+      <button class="tab-btn" data-tab="config">Configuration</button>
+    </nav>
+    <div class="topbar-right">
+      <span id="api-mode-badge" class="badge">—</span>
+      <a id="weewx-link" class="btn-link hidden" href="#" target="_blank" rel="noopener noreferrer">WeeWx</a>
+      <select id="theme-select" class="theme-select" title="Theme" aria-label="Theme">
+        <option value="light">☀️ Light</option>
+        <option value="dark">🌙 Dark</option>
+        <option value="system">🖥️ System</option>
+      </select>
+      <span id="whoami"></span>
+      <button id="btn-logout" class="btn-link">Sign out</button>
+      <span id="app-version-badge" class="badge version-badge"></span>
+    </div>
+  </header>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab-panel active">
+      <div class="panel-header">
+        <h2>Dashboard</h2>
+        <button id="btn-customize" class="btn-secondary">Customize widgets</button>
+      </div>
+
+      <div id="customize-panel" class="customize-panel hidden"></div>
+
+      <div id="widget-grid" class="widget-grid">
+        <div id="activity-panel" class="widget activity-panel hidden">
+          <h3>Recent Activity</h3>
+          <div class="activity-log-wrap">
+            <div id="activity-log-box" class="activity-log-box"></div>
+            <div class="activity-scrollbar-track">
+              <div id="activity-scrollbar-thumb" class="activity-scrollbar-thumb"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IRRIGATION -->
+    <section id="tab-irrigation" class="tab-panel">
+      <div class="panel-header">
+        <h2>Irrigation</h2>
+        <button id="btn-off-all" class="btn-danger">Emergency stop (all valves &amp; pumps)</button>
+      </div>
+      <p class="hint">Only one valve can run at a time. Pumps run independently of valves during normal operation.</p>
+      <h3 class="section-label">Valves</h3>
+      <div id="valve-cards" class="valve-grid"></div>
+      <h3 class="section-label">Pumps</h3>
+      <div id="pump-cards" class="valve-grid"></div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section id="tab-schedule" class="tab-panel">
+      <div class="panel-header">
+        <h2>Watering Schedule</h2>
+        <button id="btn-add-window" class="btn-primary">+ Add watering window</button>
+      </div>
+      <div id="schedule-by-valve"></div>
+    </section>
+
+    <!-- CONFIGURATION (full garden.json) -->
+    <section id="tab-config" class="tab-panel">
+      <div class="panel-header">
+        <h2>Configuration</h2>
+        <button id="btn-save-config" class="btn-primary">Save changes</button>
+      </div>
+      <div class="card config-warning">
+        <strong>This edits <code id="config-file-path">garden.json</code> directly</strong> — a file
+        shared with the other GardenPi services (ADC/LED/irrigation/weather handlers, the API).
+        Sections other than <strong>webui</strong> below affect those services, not just this one.
+        <strong>No service — including this web UI — re-reads this file automatically.</strong>
+        Restart whichever service(s) a change affects for it to take effect. Every save writes a
+        timestamped backup of the previous file alongside it first.
+      </div>
+      <p class="save-status" id="config-save-status"></p>
+      <div id="config-editor-root">
+        <div id="config-common">
+          <p class="hint">Loading configuration…</p>
+        </div>
+        <details class="config-section" id="config-advanced-details">
+          <summary>Advanced</summary>
+          <div class="config-danger-banner">
+            <strong>Danger</strong> — everything below touches every part of
+            <code id="config-file-path-2">garden.json</code>, including items rarely
+            changed (hardware pin numbers, socket paths, hardware versions, etc). These
+            are more likely to break a running handler if misconfigured — edit with care.
+          </div>
+          <div id="config-tree" class="config-tree"></div>
+        </details>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Confirm before saving garden.json -->
+<div id="modal-config-confirm" class="modal hidden">
+  <div class="modal-card">
+    <h3>Save configuration changes?</h3>
+    <p class="hint">
+      This writes to <code id="config-confirm-path">garden.json</code> immediately. A backup of the
+      current file is made first. Changes will not take effect until the affected service(s) are
+      restarted, including this web UI if you changed anything under <strong>webui</strong>.
+    </p>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="btn-cancel-config-save">Cancel</button>
+      <button type="button" class="btn-primary" id="btn-confirm-config-save">Save anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / edit schedule window modal -->
+<div id="modal-window" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="modal-title">Add watering window</h3>
+    <form id="form-window">
+      <input type="hidden" id="window-id" />
+      <label>Valve
+        <select id="window-valve"></select>
+      </label>
+      <label>Day of week
+        <select id="window-day">
+          <option value="0">Sunday</option>
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+      </label>
+      <label>Start time
+        <input type="time" id="window-start" required />
+      </label>
+      <label>Duration (minutes)
+        <input type="number" id="window-duration" min="1" max="60" step="1" required />
+      </label>
+      <label class="inline-checkbox">
+        <input type="checkbox" id="window-enabled" checked />
+        Enabled
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancel-window">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+      <p class="auth-error" id="window-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Add user (Configuration > GardenPi System > Users) -->
+<div id="modal-add-user" class="modal hidden">
+  <div class="modal-card">
+    <h3>Add user</h3>
+    <form id="form-add-user">
+      <label>Username
+        <input type="text" id="new-user-username" minlength="3" required />
+      </label>
+      <label>Password
+        <input type="password" id="new-user-password" minlength="8" required />
+      </label>
+      <label>Confirm password
+        <input type="password" id="new-user-password2" minlength="8" required />
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancel-add-user">Cancel</button>
+        <button type="submit" class="btn-primary">Add user</button>
+      </div>
+      <p class="auth-error" id="add-user-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Change password (Configuration > GardenPi System > Users) -->
+<div id="modal-user-password" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="user-password-title">Change password</h3>
+    <form id="form-user-password">
+      <input type="hidden" id="user-password-id" />
+      <label>New password
+        <input type="password" id="user-password-new" minlength="8" required />
+      </label>
+      <label>Confirm new password
+        <input type="password" id="user-password-new2" minlength="8" required />
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancel-user-password">Cancel</button>
+        <button type="submit" class="btn-primary">Save password</button>
+      </div>
+      <p class="auth-error" id="user-password-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- Friendly toast for any API/status message -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

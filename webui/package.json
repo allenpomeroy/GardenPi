@@ -1,0 +1,19 @@
+{
+  "name": "gardenpi-webui",
+  "version": "2.0.0",
+  "description": "Professional web UI (TLS, port 8787) to view and control a GardenPi/GardenAPI irrigation system, with dashboard widgets, valve control, and an in-app watering scheduler. All configuration lives in /opt/gardenpi/config/garden.json.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "uuid": "^9.0.1",
+    "winston": "^3.13.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  }
+}

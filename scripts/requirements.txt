@@ -1,0 +1,51 @@
+# requirements.txt
+#
+# Consolidated pip requirements for the GardenPi codebase:
+#   adc-handler.py, led-handler.py, irrigation-handler.py, weather-handler.py,
+#   api.py, init-picontroller-mcp.py, adc.py, leds.py, irrigation.py
+#
+# garden_logger.py, garden_config.py, garden_gpio.py, and
+# garden_gunicorn_logger.py are this project's own local modules, not pip
+# packages - they just need to sit alongside the scripts that import them
+# (Python automatically adds a script's own directory to sys.path, so no
+# PYTHONPATH setup is needed as long as they're co-located).
+#
+# Install into the project virtual environment:
+#   /opt/gardenpi/python3/bin/pip install -r requirements.txt
+
+# --- Web API (api.py) ---
+Flask>=3.0
+gunicorn>=22.0
+sdnotify>=0.3
+
+# --- Raw GPIO pin access (garden_gpio.py, used by adc-handler.py's SPI
+#     chip-select pin and weather-handler.py's wind/hz/rain pulse
+#     counting) - lgpio replaces RPi.GPIO, since this is a multi-process
+#     environment and RPi.GPIO does not arbitrate pin ownership cleanly
+#     between separate handler processes. lgpio talks to the kernel
+#     gpiochip character device directly and needs no separate daemon.
+lgpio>=0.2
+
+# --- Alternative GPIO backend: if lgpio isn't available for your platform,
+#     garden_gpio.py automatically falls back to pigpio instead - install
+#     this AND run/enable the system pigpiod daemon
+#     (sudo systemctl enable --now pigpiod) if you go this route. Only one
+#     of the two is actually required.
+# pigpio>=1.78
+
+# --- I2C / SPI bus access (adc-handler.py, led-handler.py,
+#     irrigation-handler.py, init-picontroller-mcp.py) - unaffected by the
+#     lgpio migration above, since bus access is already arbitrated by the
+#     kernel per-transaction, not a multi-process GPIO pin contention
+#     problem. Adafruit-Blinka provides the "board"/"busio" modules. ---
+Adafruit-Blinka>=8.0
+adafruit-circuitpython-mcp230xx>=2.5
+adafruit-circuitpython-mcp3xxx>=1.4
+
+# --- Weather handler (weather-handler.py): Si7021 I2C temp/humidity
+#     sensors and wind-direction interpolation ---
+smbus2>=0.4
+numpy>=1.24
+
+# --- CLI utilities (adc.py) ---
+colorama>=0.4

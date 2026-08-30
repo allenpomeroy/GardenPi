@@ -1,0 +1,40 @@
+[Unit]
+# v2.1
+# Fixed: this previously referenced "garden-api.service", a stale unit
+# name from before the api service was renamed - since no such unit
+# exists, the dependency was silently a no-op (systemd never actually
+# ordered/started anything from it). Corrected to gardenpi-api.service,
+# the last handler-tier service per restart-services.sh's mandatory
+# startup order (leds -> adc -> irrigation -> weather -> api -> webui).
+Description=GardenPi Web UI
+After=network.target gardenpi-api.service
+Wants=gardenpi-api.service
+
+[Service]
+Type=simple
+User=pi
+# All configuration is read from the shared /opt/gardenpi/config/garden.json
+# (see garden.example.json) -- this webui reads its own "webui" stanza plus
+# ground-truth hardware/handler settings from the rest of the file. There is
+# no .env file to load here.
+#
+# The service user needs write access to webui.data_dir (default
+# /opt/gardenpi/data/webui) for its own persistent data (users, sessions,
+# schedule, settings, activity history) -- create it once, e.g.:
+#   sudo mkdir -p /opt/gardenpi/data/webui && sudo chown pi:pi /opt/gardenpi/data/webui
+#
+# The default TLS key path (config.tls_key_file in garden.json, typically
+# /etc/pki/tls/private/node.key) is normally root-only (0600). Either run
+# this service as root, or grant the "pi" user read access, e.g.:
+#   sudo setfacl -m u:pi:r /etc/pki/tls/private/node.key
+WorkingDirectory=/opt/gardenpi/webui
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+
+# Uncomment to point at a non-default config file location (rarely needed --
+# /opt/gardenpi/config/garden.json is the default):
+# Environment=GARDEN_CONFIG_PATH=/opt/gardenpi/config/garden.json
+
+[Install]
+WantedBy=multi-user.target

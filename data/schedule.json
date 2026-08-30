@@ -1,0 +1,266 @@
+[
+  {
+    "id": "8637a580-f376-4399-80a8-644177b3489d",
+    "valveId": "mag",
+    "dayOfWeek": 0,
+    "start": "06:00",
+    "durationSeconds": 600,
+    "enabled": true
+  },
+  {
+    "id": "78bb58f6-c9aa-4873-831a-9ef843947436",
+    "valveId": "mag",
+    "dayOfWeek": 1,
+    "start": "06:00",
+    "durationSeconds": 600,
+    "enabled": true
+  },
+  {
+    "id": "f5ff71f5-7e9b-4060-b7e4-ffbc0ae8929f",
+    "valveId": "mag",
+    "dayOfWeek": 3,
+    "start": "06:00",
+    "durationSeconds": 600,
+    "enabled": true
+  },
+  {
+    "id": "0398050f-33b0-4ae9-90ab-aaaf2078e44a",
+    "valveId": "mag",
+    "dayOfWeek": 5,
+    "start": "06:00",
+    "durationSeconds": 600,
+    "enabled": true
+  },
+  {
+    "id": "449e6f0d-93d0-4d89-8cf8-1e6af763d505",
+    "valveId": "mag",
+    "dayOfWeek": 6,
+    "start": "06:00",
+    "durationSeconds": 600,
+    "enabled": true
+  },
+  {
+    "id": "15e468ec-4afa-40c2-b665-9cd5a139c396",
+    "valveId": "plants",
+    "dayOfWeek": 6,
+    "start": "07:00",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "91747f13-e7dc-4bd6-8991-d6d2e1b4e045",
+    "valveId": "plants",
+    "dayOfWeek": 6,
+    "start": "07:05",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "ad6420b0-65b8-4b81-9a17-0975665211f2",
+    "valveId": "plants",
+    "dayOfWeek": 0,
+    "start": "07:00",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "9593f756-ebe7-43d0-acd7-9da8f81ba29a",
+    "valveId": "plants",
+    "dayOfWeek": 0,
+    "start": "07:05",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "1a7a8972-4ce8-456f-8832-1c4a650b8a9c",
+    "valveId": "plants",
+    "dayOfWeek": 2,
+    "start": "07:00",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "95571588-93bb-4153-a6d6-e4e82c824f66",
+    "valveId": "plants",
+    "dayOfWeek": 2,
+    "start": "07:05",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "c43114eb-146e-4d5a-8076-a04d27787cb3",
+    "valveId": "plants",
+    "dayOfWeek": 3,
+    "start": "07:00",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "f14645e1-09c6-4731-a2bf-8072e57b5f70",
+    "valveId": "plants",
+    "dayOfWeek": 3,
+    "start": "07:05",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "97150d86-2e09-4b44-8e8b-b011038a630d",
+    "valveId": "plants",
+    "dayOfWeek": 4,
+    "start": "07:00",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "27f2bfe0-2565-4cee-9ec2-7dc554c40334",
+    "valveId": "plants",
+    "dayOfWeek": 4,
+    "start": "07:05",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "b9db04a8-2415-4506-af36-3ac5913a7aaa",
+    "valveId": "plants",
+    "dayOfWeek": 5,
+    "start": "07:00",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "c6cbd716-dc79-41d9-b650-f0b7ab527995",
+    "valveId": "plants",
+    "dayOfWeek": 5,
+    "start": "07:05",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "677dc6b9-b0a3-4fa2-97d7-651bc9c078f2",
+    "valveId": "nearbed",
+    "dayOfWeek": 6,
+    "start": "07:10",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "4a5770f7-acb3-4b60-b372-6b5743e850fe",
+    "valveId": "nearbed",
+    "dayOfWeek": 6,
+    "start": "07:13",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "84b624c6-ae36-48d8-b188-062dc0fc0e32",
+    "valveId": "nearbed",
+    "dayOfWeek": 1,
+    "start": "07:10",
+    "durationSeconds": 60,
+    "enabled": true
+  },
+  {
+    "id": "035c8a85-8a5c-4382-8438-427178661762",
+    "valveId": "nearbed",
+    "dayOfWeek": 1,
+    "start": "07:13",
+    "durationSeconds": 60,
+    "enabled": true
+  },
+  {
+    "id": "708781af-232d-4c6b-bb57-b2e411e9f1b3",
+    "valveId": "nearbed",
+    "dayOfWeek": 3,
+    "start": "07:10",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "ee54d9fc-d149-435d-9275-52438bf7f020",
+    "valveId": "nearbed",
+    "dayOfWeek": 3,
+    "start": "07:13",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "a10bdfc4-153a-4299-bc34-990393938fd1",
+    "valveId": "nearbed",
+    "dayOfWeek": 4,
+    "start": "07:10",
+    "durationSeconds": 60,
+    "enabled": true
+  },
+  {
+    "id": "990f56d3-0868-4eda-be70-ae8834a9b9b3",
+    "valveId": "nearbed",
+    "dayOfWeek": 4,
+    "start": "07:13",
+    "durationSeconds": 60,
+    "enabled": true
+  },
+  {
+    "id": "71ec2630-d724-45f5-8d0c-3f76541faf94",
+    "valveId": "farbed",
+    "dayOfWeek": 6,
+    "start": "07:20",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "bb8fb3e8-d16d-4c3f-805e-005d070b3fa9",
+    "valveId": "farbed",
+    "dayOfWeek": 6,
+    "start": "07:25",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "bf40ecb5-d861-4baa-b2fb-cae6451d358d",
+    "valveId": "farbed",
+    "dayOfWeek": 1,
+    "start": "07:20",
+    "durationSeconds": 60,
+    "enabled": true
+  },
+  {
+    "id": "309b64b5-4294-46c6-a006-b87b2d87ee2f",
+    "valveId": "farbed",
+    "dayOfWeek": 1,
+    "start": "07:25",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "23a3020e-f155-4264-b16d-63b5b55c0c7e",
+    "valveId": "farbed",
+    "dayOfWeek": 3,
+    "start": "07:20",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "6011ed1b-fe8b-4a00-9bbd-8a56f114b877",
+    "valveId": "farbed",
+    "dayOfWeek": 3,
+    "start": "07:25",
+    "durationSeconds": 120,
+    "enabled": true
+  },
+  {
+    "id": "9cd4e991-2009-4c10-84b0-a28f06946dd4",
+    "valveId": "farbed",
+    "dayOfWeek": 4,
+    "start": "07:20",
+    "durationSeconds": 60,
+    "enabled": true
+  },
+  {
+    "id": "58142e15-75f6-44f6-8470-26ef428a9e7f",
+    "valveId": "farbed",
+    "dayOfWeek": 4,
+    "start": "07:25",
+    "durationSeconds": 60,
+    "enabled": true
+  }
+]

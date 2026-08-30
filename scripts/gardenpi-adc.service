@@ -1,0 +1,23 @@
+[Unit]
+# v2.0
+Description=GardenPi ADC
+After=network.target gardenpi-leds.service
+Requires=gardenpi-init.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+ExecStart=/opt/gardenpi/bin/adc-handler.py --hwversion 7.1
+ExecStop=/opt/gardenpi/bin/leds.py sensorerr on
+Restart=always
+RestartSec=5
+RuntimeDirectory=adc
+WorkingDirectory=/opt/gardenpi/bin
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gardenpi-adc
+
+[Install]
+WantedBy=multi-user.target
+
