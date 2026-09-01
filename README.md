@@ -6,6 +6,8 @@ The overall system drives a Weather Station (feeds WeeWx software), various mois
 
 <img width="1460" height="730" alt="GardenPi Control Dashboard" src="https://github.com/user-attachments/assets/3cf7ba8b-6141-47b7-a9bf-848d779ab477" />
 
+<img width="1467" height="730" alt="GardenPi Control Irrigation" src="https://github.com/user-attachments/assets/b4c8ce7c-b25d-4caa-a3bc-eb18ae559510" />
+
 ## Hardware
 
 Hardware:
