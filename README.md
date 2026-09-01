@@ -4,6 +4,8 @@ This repository contains all the hardware and software components for my garden 
 
 The overall system drives a Weather Station (feeds WeeWx software), various moisture, temperature, humidity sensors, and irrigation control system with 5 valves and 2 pumps. Three status LEDs on the external enclosure (System, Sensors, Irrigation) give an indication of operations. Web pages give Dashboard, Irrigation Control, Schedule, detailed Configuration pages.
 
+<img width="1460" height="730" alt="GardenPi Control Dashboard" src="https://github.com/user-attachments/assets/3cf7ba8b-6141-47b7-a9bf-848d779ab477" />
+
 ## Hardware
 
 Hardware:
