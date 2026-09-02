@@ -32,6 +32,17 @@ Hardware:
     - 60Hz 120 VAC frequency measurement
     - 3 additional GPIO input lines
 
+### PiController
+
+Schematic and PCB designed with KiCad
+
+<img width="912" height="710" alt="PiControllerV7 1 kicad_pcb 3d2" src="https://github.com/user-attachments/assets/cdaf9080-9ea9-42de-82ef-03d6be3a763c" />
+
+<img width="738" height="629" alt="PiControllerV7 1 pcb3d2" src="https://github.com/user-attachments/assets/70fb33e2-d91f-41d0-8666-ae5540e84e5a" />
+
+<img width="807" height="621" alt="PiControllerV7 1 kicad_pcb 3d1" src="https://github.com/user-attachments/assets/179b7d9a-fb93-4e86-bfca-b6895ea39bd6" />
+
+
 ## Software
 
 ### Overview
