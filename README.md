@@ -32,9 +32,9 @@ Hardware:
     - 60Hz 120 VAC frequency measurement
     - 3 additional GPIO input lines
 
-### PiController
+Schematic and PCB for both the Pi expansion HAT and the standalone I2C irrigation power controller were designed with KiCad.  PCB fabrication was done by the awesome folks at OSH Park (https://oshpark.com/) who are US based. Parts were sourced from Mouser Electronics (https://mouser.com).
 
-Schematic and PCB designed with KiCad
+### PiController
 
 <img width="912" height="710" alt="PiControllerV7 1 kicad_pcb 3d2" src="https://github.com/user-attachments/assets/cdaf9080-9ea9-42de-82ef-03d6be3a763c" />
 
