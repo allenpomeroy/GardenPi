@@ -42,6 +42,14 @@ Schematic and PCB designed with KiCad
 
 <img width="807" height="621" alt="PiControllerV7 1 kicad_pcb 3d1" src="https://github.com/user-attachments/assets/179b7d9a-fb93-4e86-bfca-b6895ea39bd6" />
 
+### PowerController
+
+<img width="1066" height="757" alt="PowerController-3d2" src="https://github.com/user-attachments/assets/d1393665-7954-454c-b323-a33cc1de2a67" />
+
+<img width="954" height="796" alt="PowerController-3d" src="https://github.com/user-attachments/assets/edd40d21-3bb8-495d-adee-70f2da05961c" />
+
+<img width="1929" height="2555" alt="PowerController" src="https://github.com/user-attachments/assets/04421427-29c4-40e2-8f9e-6655dd694f7a" />
+
 
 ## Software
 
