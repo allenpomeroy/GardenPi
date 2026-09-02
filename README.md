@@ -81,17 +81,16 @@ All software for this project has been completely rewritten to one monolithic pr
 
 ### GardenPi Control Web UI
 
-A professional web UI (TLS-only, port 8787) for a GardenPi-style irrigation
+A modern web UI (TLS-only, port 8787) for this GardenPi irrigation
 system: a configurable-widget **Dashboard**, an **Irrigation** tab for direct
-valve/pump control, a **Schedule** tab that replaces crontab + bash-wrapper
-watering scripts with an in-app scheduler, and a **Settings** tab.
+valve/pump control, a **Schedule** tab to drive the in-app scheduler, and a **Configuration** tab.
 
-It talks to the real **Garden Controller REST API** (Bearer-token auth,
+It talks to the real **GardenPi REST API** (Bearer-token auth,
 relay-based irrigation control, LED status, ADC sensors, a weather endpoint)
 running on the Pi, with an in-memory simulation mode for development/demo
 without hardware.
 
-Deployed at `/opt/gardenpi/webui`, configured entirely from
+Deployed at `/opt/gardenpi`, configured entirely from
 `/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
 
 ### Contents
@@ -132,7 +131,7 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
   stop" button that stops every relay at once.
 - **Schedule tab** — an in-app scheduler with add/edit/delete watering
   windows, per-valve "select all" enable/disable, next-run times, and a live
-  "RUNNING" badge, replacing crontab + a bash wrapper script.
+  "RUNNING" badge.
 - **Configuration tab** — a full editor over the `garden.json` file (not a
   separate Settings page - there is no standalone Settings tab; session
   timeout, dashboard refresh interval, valve safety limits, and everything
@@ -150,7 +149,7 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
 
 ### Quick start
 
-This app is deployed at **`/opt/gardenpi/webui`**, with its configuration at
+This app is deployed at **`/opt/gardenpi`**, with its configuration at
 **`/opt/gardenpi/config/garden.json`** (see [Configuration](#configuration)
 below). It is a plain Node.js/Express application — there is no Python
 virtual environment or `requirements.txt` for this component (see the note
