@@ -6,8 +6,6 @@ The overall system drives a Weather Station (feeds WeeWx software), various mois
 
 <img width="1460" height="730" alt="GardenPi Control Dashboard" src="https://github.com/user-attachments/assets/3cf7ba8b-6141-47b7-a9bf-848d779ab477" />
 
-<img width="1467" height="730" alt="GardenPi Control Irrigation" src="https://github.com/user-attachments/assets/b4c8ce7c-b25d-4caa-a3bc-eb18ae559510" />
-
 ## Hardware
 
 Hardware:
@@ -15,7 +13,7 @@ Hardware:
 - Native GPIO lines on the Raspberry Pi
   - Rain, Wind, power Hz sensors
 - Native I2C hardware (Bus 1) and software (Bus 3) busses
-  - Si7021 Temp+Humidity sensors internal and external
+  - Si7021 Temp+Humidity sensors internal to the enclosure and external
 - PiControllerV7.1.1 expansion PCB
   - MCP23017 for 16 additional GPIO lines accessed via I2C
   - MCP3008 Analog Digital Converter accessed via native GPIO SPI interface
@@ -50,12 +48,11 @@ Schematic and PCB for both the Pi expansion HAT and the standalone I2C irrigatio
 
 <img width="1929" height="2555" alt="PowerController" src="https://github.com/user-attachments/assets/04421427-29c4-40e2-8f9e-6655dd694f7a" />
 
-
 ## Software
 
 ### Overview
 
-All software for this project has been completely rewritten to one monolithic project based on
+All software for this project has been completely rewritten to one integrated project based on
 - handlers to interface with hardware for command, control and queries
 - comprehensive API which exposes endpoints that provide control and query access to hardware (default port 5000)
 - many clients could be accessing the MCP23017's or the MCP3008 simultaneously, so there is a small number of handlers to provide exclusive access to the chips without reinitialization on each different access
@@ -64,34 +61,80 @@ All software for this project has been completely rewritten to one monolithic pr
   - adc-handler.py / adc.py - read voltage of any of the ADC channels
   - irrigation-handler.py / irrigation.py - control valves and pumps, turn on/off, get status
   - led-handler.py / led.py - control LEDs
-- api endpoints
+  - weather-handler.py - read wind, rain, temperature, humidity sensors
+- API endpoints api.py (default port 5000)
 - webui web interface (default port 8787)
 - python3 virtual env in which all needed third party libraries such as the Adafruit CircuitPython
 - Uses Adafruit libraries for both MCP23017 and MCP3008 chips (installed by install process)
   https://docs.circuitpython.org/projects/mcp230xx/en/latest/api.html#adafruit_mcp230xx.digital_inout.DigitalInOut
   adafruit-circuitpython-mcp230xx
-- installation of software
-  - extract gardenpi-x.x.x.tgz to /opt/gardenpi
-  - cd /opt/gardenpi
-  - sudo /opt/gardenpi/scripts/fix-perms.sh
-  - sudo /opt/gardenpi/scripts/install-garden.sh
-  - open browser https://raspberry.local:8787
-  - create initial admin user / password
-  - set any sensor, channel, relay user names and friendly names
+- No native modules are used (bcryptjs instead of bcrypt, a JSON file instead of SQLite) specifically so `npm install` works cleanly on a Raspberry Pi without a C build toolchain.
 
 ### GardenPi Control Web UI
 
 A modern web UI (TLS-only, port 8787) for this GardenPi irrigation
 system: a configurable-widget **Dashboard**, an **Irrigation** tab for direct
-valve/pump control, a **Schedule** tab to drive the in-app scheduler, and a **Configuration** tab.
+valve/pump control, a **Schedule** tab to drive the in-app scheduler, and a **Configuration** tab. Implemented as a Gunicorn app in node.
 
 It talks to the real **GardenPi REST API** (Bearer-token auth,
 relay-based irrigation control, LED status, ADC sensors, a weather endpoint)
 running on the Pi, with an in-memory simulation mode for development/demo
 without hardware.
 
-Deployed at `/opt/gardenpi`, configured entirely from
+### Quickstart
+
+Run the install steps then open `https://<host>:8787` — you'll be prompted to create the admin account on first visit.
+
+### Installation
+
+GardenPi is implemented with python and virtual environment for handlers and clients and a plain Node.js/Express application for the web UI. The default values in /opt/gardenpi/config/garden.json will start a web UI at port 8787 and API listener at port 5000.
+
+Deployed at `/opt/gardenpi`, configured entirely from web UI Configuration page.  Writes configuration data into 
 `/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
+
+```
+mkdir -p /opt/gardenpi
+cd /opt/gardenpi
+tar xzvf gardenpi-x.x.x.tgz
+sudo /opt/gardenpi/scripts/fix-perms.sh
+sudo /opt/gardenpi/scripts/install-garden.sh
+sudo /opt/gardenpi/scripts/restart-services.sh
+```
+
+Optionally populate watering schedule using
+
+```
+node scripts/seed-schedule.js   # optional: pre-loads an example watering schedule
+```
+
+- Open browser https://raspberry.local:8787
+- Create initial admin user / password
+- Set any sensor, channel, relay user names and friendly names
+
+<img width="1151" height="610" alt="InitialConfig" src="https://github.com/user-attachments/assets/fff6a4e5-3634-4bb5-9fbc-2e40e9473a60" />
+
+By default the app expects a TLS certificate/key already installed at
+`/etc/pki/tls/certs/node.pem` and `/etc/pki/tls/private/node.key` set via Configuration > GardenPi System. Certificates are used by both API and WebUI.
+If you're testing locally and don't have
+those, run `./scripts/generate-cert.sh` instead and set certificate file paths in Configuration > GardenPi System.
+
+**Permissions note:** `/etc/pki/tls/private/node.key` is typically root-only
+readable (`0600`). Whatever OS user runs this app needs read access to it —
+either run the service as `root`, or grant your app user read access, e.g.:
+
+```bash
+sudo setfacl -m u:pi:r /etc/pki/tls/private/node.key
+```
+or
+```
+sudo chgrp certificates /etc/pki/tls/private/node.key
+```
+Assuming pi user has already been added to certificates group.
+
+### Testing
+
+To test the GardenPi web UI without the live API listener, navigate to Configuration > Advanced > Web UI > Use Mock API.
+Set the API base URL and authentication Token for API and Web UI once you're ready to point at the real controller (see [Configuration](#configuration)).
 
 ### UI
 
@@ -105,7 +148,7 @@ Deployed at `/opt/gardenpi`, configured entirely from
 
 <img width="1832" height="723" alt="GardenPiIrrigation" src="https://github.com/user-attachments/assets/7e705d2d-5a32-40b9-a6bb-6551214cb66e" />
 
-### Contents
+### Functions
 
 - [Features](#features)
 - [Quick start](#quick-start)
@@ -161,51 +204,6 @@ Deployed at `/opt/gardenpi`, configured entirely from
 
 ### Quick start
 
-This app is deployed at **`/opt/gardenpi`**, with its configuration at
-**`/opt/gardenpi/config/garden.json`** (see [Configuration](#configuration)
-below). It is a plain Node.js/Express application — there is no Python
-virtual environment or `requirements.txt` for this component (see the note
-at the end of [Configuration](#configuration) if you were expecting one).
-
-```bash
-sudo mkdir -p /opt/gardenpi/config
-sudo mkdir -p /opt/gardenpi/webui
-sudo mkdir -p /opt/gardenpi/data/webui
-sudo chown -R pi:pi /opt/gardenpi/data/webui /opt/gardenpi/webui   # or your service user
-# Unpack this project's contents into /opt/gardenpi/webui, then:
-cd /opt/gardenpi/webui
-npm install
-sudo cp garden.example.json /opt/gardenpi/config/garden.json   # only if garden.json doesn't already exist
-sudo nano /opt/gardenpi/config/garden.json                     # edit the webui stanza: token, baseUrl, etc.
-node scripts/seed-schedule.js                                  # optional: pre-loads an example watering schedule
-npm start                                                       # listens on https://0.0.0.0:8787
-```
-
-By default the app expects a TLS certificate/key already installed at
-`/etc/pki/tls/certs/node.pem` and `/etc/pki/tls/private/node.key` (set via
-`config.tls_cert_file` / `config.tls_key_file` in `garden.json` — shared
-system-wide, not webui-specific) — the same standard location the GardenAPI's
-own production Gunicorn setup uses. If you're testing locally and don't have
-those, run `./scripts/generate-cert.sh` instead and set
-`config.tls_cert_file`/`config.tls_key_file` to `./certs/server.crt` /
-`./certs/server.key` in `garden.json`.
-
-**Permissions note:** `/etc/pki/tls/private/node.key` is typically root-only
-readable (`0600`). Whatever OS user runs this app needs read access to it —
-either run the service as `root`, or grant your app user read access, e.g.:
-
-```bash
-sudo setfacl -m u:pi:r /etc/pki/tls/private/node.key
-```
-
-Then open `https://<host>:8787` — you'll be prompted to create the admin
-account on first visit. Set `gardenApi.mock` to `false` and fill in
-`gardenApi.baseUrl` / `gardenApi.token` in `garden.json` once you're ready to
-point at the real controller (see [Configuration](#configuration)).
-
-No native modules are used (bcryptjs instead of bcrypt, a JSON file instead of
-SQLite) specifically so `npm install` works cleanly on a Raspberry Pi without a
-C build toolchain.
 
 ---
 
