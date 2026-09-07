@@ -54,7 +54,7 @@ Schematic and PCB for both the Pi expansion HAT and the standalone I2C irrigatio
 
 All software for this project has been completely rewritten to one integrated project based on
 - handlers to interface with hardware for command, control and queries
-- comprehensive API which exposes endpoints that provide control and query access to hardware (default port 5000)
+- comprehensive API which exposes endpoints that provide control and query access to hardware
 - many clients could be accessing the MCP23017's or the MCP3008 simultaneously, so there is a small number of handlers to provide exclusive access to the chips without reinitialization on each different access
 - client programs communicate to the handlers via unix sockets and implement an exclusive lock to ensure only one client of each handler is communicating with the handler at a time
 - handler / clients:
@@ -202,68 +202,15 @@ Set the API base URL and authentication Token for API and Web UI once you're rea
   human message, while full detail goes to the logs.
 - **TLS-only**, listening on port 8787.
 
-### Quick start
-
-
----
-
 ### Configuration
 
 **`/opt/gardenpi/config/garden.json` is a file SHARED across the whole
-GardenPi system** (other handlers, the API, etc.) — this web UI only
-owns one stanza in it, `webui`, and treats the rest (`config`, `hardware`,
-`handlers`) as **ground truth it reads but does not manage**. There is no
-`.env` file and nothing is configured via environment variables (with one
+GardenPi system** (handlers, clients, API, WebUI). There are no
+`.env` files and nothing is configured via environment variables (with one
 narrow exception, `GARDEN_CONFIG_PATH`, described below). Everything is
 loaded and cross-referenced by `server/config.js`.
 
-Copy the shipped template and edit the `webui` stanza (the other stanzas
-should already exist, managed by the rest of your GardenPi install):
-
-```bash
-sudo cp garden.example.json /opt/gardenpi/config/garden.json   # only if garden.json doesn't already exist
-sudo nano /opt/gardenpi/config/garden.json
-```
-
-### The `webui` stanza (this app's own settings)
-
-| Field | Default | Purpose |
-|---|---|---|
-| `webui.listen_port` | `8787` | HTTPS listen port. |
-| `webui.log_level` | `info` | Falls back to `config.global_log_level` if unset. Set to `debug` temporarily to see raw GardenAPI response bodies — see [Diagnostics](#diagnostics-log_leveldebug). |
-| `webui.data_dir` | `/opt/gardenpi/data/webui` | Where this app's own dynamic data lives — see below. **Never** garden.json itself. |
-| `webui.log_dir` | `/opt/gardenpi/webui/logs` | Where log files are written. |
-| `webui.api_base_url` | `https://raspberrypi.local:5000` | Base URL of the real Garden Controller API, as reachable from wherever webui runs. |
-| `webui.api_tls_reject` | `"false"` | Set `"true"` once the controller has a trusted (non-self-signed) cert. |
-| `webui.api_timeout_ms` | `"4000"` | Timeout for calls to the controller before surfacing a friendly "unreachable" message. |
-| `webui.mock_api` | `"true"` | `"true"` runs against an in-memory simulated controller (no hardware needed); set `"false"` for the real API. |
-| `webui.irrigation.valves[]` / `.pumps[]` | see `garden.example.json` | Friendly `name`/`location` for each relay — see below for how these map to hardware. |
-| `webui.settings.*` | see `garden.example.json` | **Defaults only** for session timeout / poll interval / guard rails — see below. |
-
-### Ground truth read from the OTHER stanzas (not webui-owned)
-
-- **TLS cert/key** (`config.tls_cert_file` / `config.tls_key_file`) — shared
-  system-wide, not a separate webui copy.
-- **The GardenAPI Bearer token** (`handlers.api.token`) — webui reads
-  this directly rather than keeping an independent copy that could drift out
-  of sync. (It'll fall back to a `webui.api_token` field if present, but
-  that's a compatibility fallback, not the intended source.)
-- **Which physical relay each valve/pump actually is**
-  (`handlers.irrigation.relay_map`) — `webui.irrigation.valves[].id`
-  / `.pumps[].id` must be one of the labels listed there. Renaming a
-  relay's label in `relay_map` (e.g. a customer relabeling the physical
-  "pump1" slot to `"outsidelights"`) is picked up automatically — see
-  [Valves and pumps](#valves-and-pumps) for why this matters for the pump
-  safety rules specifically.
-- **Status LEDs** (`handlers.leds.led_map`) — the entire LED list is
-  derived from here; there is no separate `webui`-owned LED list to keep in
-  sync. See [Status LEDs](#status-leds).
-- **Hardware safety limits** (`handlers.irrigation.max_valve_run_time`,
-  `.no_timeout_relays`) — the physical controller's own safety ceiling and
-  no-timeout exemption list, enforced by `valveControl.js` regardless of what
-  `webui.settings.guardrails.maxRunMinutesPerValve` says (that setting can
-  only make the app-level timer *shorter* than the hardware ceiling, never
-  longer). See [Guard rails](#guard-rails-summarized).
+Edit the GardenPi settings via the WebUI versus direct edits of /opt/gardenpi/config/garden.json. Run /opt/gardenpi/scripts/restart-services.sh to load the changes.
 
 ### Dynamic data lives in its own files, never in garden.json
 
@@ -273,20 +220,16 @@ file is shared system-wide configuration; embedding per-user password
 hashes or fast-changing runtime state in it would be both a security problem
 (every service that reads the shared file would see password hashes) and a
 data-integrity one (concurrent writes from multiple services). Instead, all
-of that lives under `webui.data_dir` (default `/opt/gardenpi/data/webui`),
+of that lives under `webui.data_dir` (default `/opt/gardenpi/data`),
 managed exclusively by `server/db.js`:
 
 ```
-/opt/gardenpi/data/webui/
+/opt/gardenpi/data/
   users.json       admin account(s)
   sessions.json    active session tokens
   schedule.json    the watering schedule (edited from the Schedule tab)
   events.json      the Recent Activity feed's event history
 ```
-
-There is no `settings.json` - app-level settings (session timeout, dashboard
-refresh interval, valve safety limits) all live in `garden.json` itself now
-(edited from the Configuration tab), not a separate app-only override file.
 
 If `garden.json` is missing or fails to parse, the app logs a clear error to
 the console and **falls back to built-in defaults in mock mode** rather than
@@ -298,25 +241,10 @@ this is a pointer to where configuration lives, not a configuration value
 itself, which is why it's the one thing still set outside the file (useful
 for local dev/testing without touching `/opt/gardenpi`).
 
-**Editing garden.json from the UI:** not yet — for now this app only reads
-`garden.json`. A future version will add a Settings sub-tab to edit it
-in-place.
-
-**On the `/opt/gardenpi/python3` question:** this web UI has **no Python
-dependencies at all** — it's a plain Node.js/Express application, so there is
-no virtual environment or `requirements.txt` needed for it. If your broader
-GardenPi deployment also runs a separate Python-based service (e.g. the
-API handler itself) under a venv at that path, that's a
-different codebase from this one; its `requirements.txt` would depend on
-that project's own dependencies (Flask, gunicorn, hardware I/O libraries,
-etc.), which this project doesn't have visibility into.
-
----
-
 ## The GardenAPI integration
 
-The adapter (`server/gardenApiClient.js`) implements the documented **Garden
-Controller REST API v1.0**, adjusted to match the *actual* response shapes
+The adapter (`server/gardenApiClient.js`) implements the documented **GardenPi
+REST API v1.0**, adjusted to match the *actual* response shapes
 observed from a real controller in production (a couple of details differed
 from the original written spec — noted below).
 
@@ -366,8 +294,6 @@ read from a file — the actual calls are made directly in
 `server/gardenApiClient.js`. If your controller ever changes shape, adjust
 `extractRelayStates()` / `extractLedStates()` there — see
 [Diagnostics](#diagnostics-log_leveldebug) for how to see the raw responses.
-
----
 
 ## Valves and pumps
 
@@ -420,8 +346,6 @@ action:"off"}`, which — per the controller's actual behavior — turns off
 **every** configured relay, pumps included. It's a full stop, not just a
 valve stop.
 
----
-
 ## Status LEDs
 
 The full LED list is **derived entirely from `handlers.leds.led_map`** in
@@ -445,8 +369,6 @@ else in the LED grouping: the physical `pump1` slot can free-run with no need
 for an indicator, and the physical `pump2` slot only ever runs while a valve
 is on, which the Irrigation LED already indicates.
 
----
-
 ## Sensors
 
 The Sensors widget combines two GardenAPI sources:
@@ -463,8 +385,6 @@ display (long raw values like `2.697685740236551` display as `2.698`).
 Sensors widget to check/uncheck individual readings. New sensors are visible
 by default the first time they're seen; the choice is remembered per-browser
 (`localStorage`), independent of which top-level dashboard widgets are shown.
-
----
 
 ## Recent Activity
 
@@ -512,11 +432,9 @@ troubleshooting GardenAPI integration issues), that's still available via
 `GET /api/logs/current` — see [Diagnostics](#diagnostics-log_leveldebug) — it
 just isn't what's shown in this dashboard panel.
 
----
+## Scheduler
 
-## Scheduler (replacing crontab)
-
-`server/scheduler.js` replaces the old crontab + bash-wrapper approach.
+`server/scheduler.js` implements the watering schedule.
 Design notes:
 
 - A tick runs every 15 seconds and checks whether "now" falls inside any
@@ -530,11 +448,6 @@ Design notes:
 - Each valve's block on the Schedule tab has a "select all" checkbox next to
   the **Enabled** column header, to enable/disable every window for that
   valve at once.
-
-Once you're happy with the in-app Schedule tab, remove the old crontab lines
-(`crontab -e`) and the bash wrapper script they called.
-
----
 
 ## Authentication and sessions
 
@@ -567,8 +480,6 @@ Once you're happy with the in-app Schedule tab, remove the old crontab lines
   explicit user actions (ignoring the background poll), that's a small,
   contained change in `server/middleware/requireAuth.js` / the status route.
 
----
-
 ## Guard rails, summarized
 
 - Only one **valve** can be on at a time (toggleable in Settings) — enforced
@@ -594,8 +505,6 @@ Once you're happy with the in-app Schedule tab, remove the old crontab lines
   "on" if the controller silently accepted the command but the valve never
   actually changed state.
 
----
-
 ## Error handling and logging
 
 - A central error handler (`server/middleware/errorHandler.js`) guarantees the
@@ -609,8 +518,6 @@ Once you're happy with the in-app Schedule tab, remove the old crontab lines
 - Expected/handled conditions (guard-rail conflicts, unreachable hardware, bad
   input) are logged at `warn`, keeping `error`-level logs meaningful for
   genuine bugs.
-
----
 
 ## Diagnostics (`LOG_LEVEL=debug`)
 
@@ -639,34 +546,13 @@ curl -k -H "Authorization: Bearer <token>" "https://<host>:5000/api/leds/status?
 curl -k -H "Authorization: Bearer <token>" "https://<host>:5000/api/leds/status"
 ```
 
----
+## GardenPi Components Run As systemd Services
 
-## Running as a service (systemd)
+Unit files `scripts/gardenpi-*.service` are used by add-services.sh to setup each service
 
-A unit file is provided at `scripts/gardenpi-webui.service`, already set up
-for the `/opt/gardenpi/webui` layout:
+## Configuration Tab
 
-```bash
-sudo cp scripts/gardenpi-webui.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now gardenpi-webui
-```
-
-Edit the `User=` line if you're not running as `pi` (and see the TLS key
-permissions note above/in the unit file's comments). Configuration is read
-from `/opt/gardenpi/config/garden.json` automatically — no `EnvironmentFile`
-or `.env` needed.
-
----
-
-## Configuration tab (editing garden.json from the UI)
-
-The **Configuration** tab lets you view and edit `garden.json` from the UI —
-not just the `webui` stanza, but `config`/`hardware`/`handlers` too, since
-those are all in the same shared file. It's the ONLY settings surface in
-this app — there is no separate Settings page; session timeout, dashboard
-refresh interval, valve concurrency/safety limits, and hardware/handler
-naming are all edited here.
+The **Configuration** tab lets you view and edit `garden.json` from the UI which is the only settings store.
 
 **This is an explicit allowlist, not a full generic editor.** Only the
 fields listed below are shown at all; anything not mapped is excluded from
@@ -889,8 +775,7 @@ Deployed layout:
   config/
     garden.json           SHARED across the whole GardenPi system --
                            webui owns only the 'webui' stanza in it
-  data/
-    webui/                 THIS app's dynamic data ONLY (never in garden.json)
+  data/                   dynamic data
       users.json, sessions.json, schedule.json, events.json
   webui/                  this project
     server/
