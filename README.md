@@ -93,6 +93,18 @@ without hardware.
 Deployed at `/opt/gardenpi`, configured entirely from
 `/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
 
+### UI
+
+<img width="1832" height="890" alt="GardenPiConfiguration" src="https://github.com/user-attachments/assets/804b8681-a974-4eb5-8c03-c8fb50e7daa0" />
+
+<img width="865" height="820" alt="GardenPiConfiguration2" src="https://github.com/user-attachments/assets/0d237074-aa6c-4dda-a3b3-40e87090396d" />
+
+<img width="863" height="490" alt="GardenPiConfiguration3" src="https://github.com/user-attachments/assets/ec1914ff-2a7b-4f35-a4f2-dbdbeb75178f" />
+
+<img width="1829" height="913" alt="GardenPiSchedule" src="https://github.com/user-attachments/assets/8eb3e22e-5df6-4925-b1e2-195c06a371ed" />
+
+<img width="1832" height="723" alt="GardenPiIrrigation" src="https://github.com/user-attachments/assets/7e705d2d-5a32-40b9-a6bb-6551214cb66e" />
+
 ### Contents
 
 - [Features](#features)
