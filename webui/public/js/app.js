@@ -1235,7 +1235,8 @@
       mappedField(['config', 'last_changed'], 'Last Changed', { readOnly: true }),
       `<div class="config-field"><label>Global Log Level</label>${renderLogLevelSelect(['config', 'global_log_level'], getDeepConfig(configWorkingCopy, ['config', 'global_log_level']))}</div>`,
       mappedField(['config', 'tls_cert_file'], 'TLS Certificate File'),
-      mappedField(['config', 'tls_key_file'], 'TLS Key File')
+      mappedField(['config', 'tls_key_file'], 'TLS Key File'),
+      mappedField(['config', 'github_repository_url'], 'GitHub Repository')
     ].join('');
 
     // ---- Web UI ----
