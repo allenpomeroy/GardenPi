@@ -1,6 +1,6 @@
 # GardenPi
 
-This repository contains all the hardware and software components for my garden automation system that is based on Raspberry Pi 4.  It uses the built-in GPIO ports, a I2C based PiController for additional MCP GPIO sensor ports and LEDs, ADC channels and an I2C based PowerController with 5 valve and 2 pump relays.
+This repository contains all the hardware and software components for my garden automation system that is based on Raspberry Pi 4 running Debian 12 Bookworm.  It uses the built-in Raspberry Pi GPIO ports, a I2C based PiController HAT for additional MCP GPIO sensor ports and LEDs, ADC channels and a separate PCB for a I2C based PowerController with 5 valve and 2 pump relays.
 
 The overall system drives a Weather Station (feeds WeeWx software), various moisture, temperature, humidity sensors, and irrigation control system with 5 valves and 2 pumps. Three status LEDs on the external enclosure (System, Sensors, Irrigation) give an indication of operations. Web pages give Dashboard, Irrigation Control, Schedule, detailed Configuration pages.
 
@@ -9,7 +9,7 @@ The overall system drives a Weather Station (feeds WeeWx software), various mois
 ## Hardware
 
 Hardware:
-- Raspberry Pi 4 running Debian Bookworm Linux
+- Raspberry Pi 4 running Debian 12 Bookworm Linux
 - Native GPIO lines on the Raspberry Pi
   - Rain, Wind, power Hz sensors
 - Native I2C hardware (Bus 1) and software (Bus 3) busses
@@ -63,7 +63,7 @@ All software for this project has been completely rewritten to one integrated pr
   - led-handler.py / led.py - control LEDs
   - weather-handler.py - read wind, rain, temperature, humidity sensors
 - API endpoints api.py (default port 5000)
-- webui web interface (default port 8787)
+- webui web HTTPS interface (default port 8787)
 - python3 virtual env in which all needed third party libraries such as the Adafruit CircuitPython
 - Uses Adafruit libraries for both MCP23017 and MCP3008 chips (installed by install process)
   https://docs.circuitpython.org/projects/mcp230xx/en/latest/api.html#adafruit_mcp230xx.digital_inout.DigitalInOut
@@ -83,7 +83,7 @@ without hardware.
 
 ### Quickstart
 
-Run the install steps then open `https://<host>:8787` — you'll be prompted to create the admin account on first visit.
+Download the zip file from GitHub. Unzip then run the install steps. Open `https://<host>:8787` — you'll be prompted to create the admin account on first visit.
 
 ### Installation
 
@@ -93,9 +93,13 @@ Deployed at `/opt/gardenpi`, configured entirely from web UI Configuration page.
 `/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
 
 ```
-mkdir -p /opt/gardenpi
+unzip GardenPi-main.zip  (will create GardenPi-main directory)
+cd GardenPi-main
+sudo mkdir -p /opt/gardenpi
+sudo mv * /opt/gardenpi
+cd ..
+rmdir GardenPi-main
 cd /opt/gardenpi
-tar xzvf gardenpi-x.x.x.tgz
 sudo /opt/gardenpi/scripts/fix-perms.sh
 sudo /opt/gardenpi/scripts/install-garden.sh
 sudo /opt/gardenpi/scripts/restart-services.sh
@@ -129,7 +133,9 @@ or
 ```
 sudo chgrp certificates /etc/pki/tls/private/node.key
 ```
-Assuming pi user has already been added to certificates group.
+Assumes pi user has already been added to certificates group.
+
+Navigate to Configuration tab, set a unique API bearer token in Web UI and API configuration panes.  Set a unique session secret in Web UI pane.  These can both be alphanumeric strings.  
 
 ### Testing
 
@@ -187,12 +193,9 @@ Set the API base URL and authentication Token for API and Web UI once you're rea
 - **Schedule tab** — an in-app scheduler with add/edit/delete watering
   windows, per-valve "select all" enable/disable, next-run times, and a live
   "RUNNING" badge.
-- **Configuration tab** — a full editor over the `garden.json` file (not a
-  separate Settings page - there is no standalone Settings tab; session
-  timeout, dashboard refresh interval, valve safety limits, and everything
-  else that used to live there is edited here instead, laid out to match
-  the "GardenPi System / Web UI / Software" grouping used across all
-  GardenPi configuration surfaces), with type-preserving edits, masked
+- **Configuration tab** — a full editor for the `garden.json` file. It is laid
+  out to match the "GardenPi System / Web UI / Software" grouping used across all
+  GardenPi configuration surfaces, with type-preserving edits, masked
   secrets, HW ID/User ID/Friendly Name label tables for ADC/LED/Irrigation/
   Weather, hardware pin-map tables, and automatic backups on every save.
 - **Auth** — first connection prompts creation of an admin username/password;
@@ -210,7 +213,9 @@ GardenPi system** (handlers, clients, API, WebUI). There are no
 narrow exception, `GARDEN_CONFIG_PATH`, described below). Everything is
 loaded and cross-referenced by `server/config.js`.
 
-Edit the GardenPi settings via the WebUI versus direct edits of /opt/gardenpi/config/garden.json. Run /opt/gardenpi/scripts/restart-services.sh to load the changes.
+WARNING: Only edit the GardenPi settings via the WebUI versus direct edits
+of `/opt/gardenpi/config/garden.json`. Run `/opt/gardenpi/scripts/restart-services.sh`
+to load the changes.
 
 ### Dynamic data lives in its own files, never in garden.json
 
