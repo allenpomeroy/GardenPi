@@ -1,4 +1,3 @@
-=== ./webui/README.md ===
 # GardenPi Control
 
 A professional web UI (TLS-only, port 8787) for a GardenPi-style irrigation
