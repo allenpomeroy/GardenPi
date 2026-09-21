@@ -2,7 +2,7 @@
   "config": {
     "name": "garden.json",
     "comment": "Configuration file for all GardenPi hardware and software",
-    "version": "3.0.5",
+    "version": "3.0.6",
     "last_changed": "2026-08-29T09:00:00-05:00",
     "tls_cert_file": "/etc/pki/tls/certs/node.pem",
     "tls_key_file": "/etc/pki/tls/private/node.key",
@@ -12,7 +12,8 @@
     "socket_timeout_comment": "Socket timeout for handler communication",
     "socket_timeout": 10.0,
     "global_log_level": "info",
-    "supported_log_levels": ["critical", "error", "warning", "info", "debug"]
+    "supported_log_levels": ["critical", "error", "warning", "info", "debug"],
+    "github_repository_url": "https://github.com/allenpomeroy/GardenPi"
   },
   "hardware": {
     "comment_pin_map": "Each hardware source has one pin_map: a list of {hardware_id, pin, type} entries. hardware_id is read-only (never user editable). type identifies how the pin is used (gpio, led, adc, relay, i2c) by the handler that owns it. For type 'i2c' entries, 'pin' holds the I2C bus number and an additional 'addr' field holds the device's I2C address (e.g. '0x40').",
