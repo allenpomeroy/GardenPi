@@ -11,9 +11,6 @@ relay-based irrigation control, LED status, ADC sensors, a weather endpoint)
 running on the Pi, with an in-memory simulation mode for development/demo
 without hardware.
 
-Deployed at `/opt/gardenpi/webui`, configured entirely from
-`/opt/gardenpi/config/garden.json` — see [Configuration](#configuration).
-
 ---
 
 ## Contents
@@ -73,75 +70,6 @@ Deployed at `/opt/gardenpi/webui`, configured entirely from
 - **TLS-only**, listening on port 8787.
 
 ---
-
-## Quick start
-
-This app is deployed at **`/opt/gardenpi/webui`**, with its configuration at
-**`/opt/gardenpi/config/garden.json`** (see [Configuration](#configuration)
-below). It is a plain Node.js/Express application — there is no Python
-virtual environment or `requirements.txt` for this component (see the note
-at the end of [Configuration](#configuration) if you were expecting one).
-
-```bash
-sudo mkdir -p /opt/gardenpi/config
-sudo mkdir -p /opt/gardenpi/webui
-sudo mkdir -p /opt/gardenpi/data/webui
-sudo chown -R pi:pi /opt/gardenpi/data/webui /opt/gardenpi/webui   # or your service user
-# Unpack this project's contents into /opt/gardenpi/webui, then:
-cd /opt/gardenpi/webui
-npm install
-sudo cp garden.example.json /opt/gardenpi/config/garden.json   # only if garden.json doesn't already exist
-sudo nano /opt/gardenpi/config/garden.json                     # edit the webui stanza: token, baseUrl, etc.
-node scripts/seed-schedule.js                                  # optional: pre-loads an example watering schedule
-npm start                                                       # listens on https://0.0.0.0:8787
-```
-
-By default the app expects a TLS certificate/key already installed at
-`/etc/pki/tls/certs/node.pem` and `/etc/pki/tls/private/node.key` (set via
-`config.tls_cert_file` / `config.tls_key_file` in `garden.json` — shared
-system-wide, not webui-specific) — the same standard location the GardenAPI's
-own production Gunicorn setup uses. If you're testing locally and don't have
-those, run `./scripts/generate-cert.sh` instead and set
-`config.tls_cert_file`/`config.tls_key_file` to `./certs/server.crt` /
-`./certs/server.key` in `garden.json`.
-
-**Permissions note:** `/etc/pki/tls/private/node.key` is typically root-only
-readable (`0600`). Whatever OS user runs this app needs read access to it —
-either run the service as `root`, or grant your app user read access, e.g.:
-
-```bash
-sudo setfacl -m u:pi:r /etc/pki/tls/private/node.key
-```
-
-Then open `https://<host>:8787` — you'll be prompted to create the admin
-account on first visit. Set `gardenApi.mock` to `false` and fill in
-`gardenApi.baseUrl` / `gardenApi.token` in `garden.json` once you're ready to
-point at the real controller (see [Configuration](#configuration)).
-
-No native modules are used (bcryptjs instead of bcrypt, a JSON file instead of
-SQLite) specifically so `npm install` works cleanly on a Raspberry Pi without a
-C build toolchain.
-
----
-
-## Configuration
-
-**`/opt/gardenpi/config/garden.json` is a file SHARED across the whole
-GardenPi system** (other handlers, the API, etc.) — this web UI only
-owns one stanza in it, `webui`, and treats the rest (`config`, `hardware`,
-`handlers`) as **ground truth it reads but does not manage**. There is no
-`.env` file and nothing is configured via environment variables (with one
-narrow exception, `GARDEN_CONFIG_PATH`, described below). Everything is
-loaded and cross-referenced by `server/config.js`.
-
-Copy the shipped template and edit the `webui` stanza (the other stanzas
-should already exist, managed by the rest of your GardenPi install):
-
-```bash
-sudo cp garden.example.json /opt/gardenpi/config/garden.json   # only if garden.json doesn't already exist
-sudo nano /opt/gardenpi/config/garden.json
-```
-
 ### The `webui` stanza (this app's own settings)
 
 | Field | Default | Purpose |
@@ -201,10 +129,6 @@ managed exclusively by `server/db.js`:
   events.json      the Recent Activity feed's event history
 ```
 
-There is no `settings.json` - app-level settings (session timeout, dashboard
-refresh interval, valve safety limits) all live in `garden.json` itself now
-(edited from the Configuration tab), not a separate app-only override file.
-
 If `garden.json` is missing or fails to parse, the app logs a clear error to
 the console and **falls back to built-in defaults in mock mode** rather than
 crashing, so a bad edit doesn't take the whole service down silently.
@@ -214,10 +138,6 @@ app looks for `garden.json` (default `/opt/gardenpi/config/garden.json`) —
 this is a pointer to where configuration lives, not a configuration value
 itself, which is why it's the one thing still set outside the file (useful
 for local dev/testing without touching `/opt/gardenpi`).
-
-**Editing garden.json from the UI:** not yet — for now this app only reads
-`garden.json`. A future version will add a Settings sub-tab to edit it
-in-place.
 
 **On the `/opt/gardenpi/python3` question:** this web UI has **no Python
 dependencies at all** — it's a plain Node.js/Express application, so there is
@@ -837,18 +757,4 @@ Deployed layout:
     logs/                   created at runtime (webui.log_dir in garden.json)
 ```
 
----
 
-## Known limitations / things to verify on your hardware
-
-- The `leds` and `valves` arrays in `garden.json` reflect relay/LED names
-  confirmed against a real controller during development, but if your
-  controller's firmware/config differs, edit those arrays in `garden.json` —
-  no other code needs to change.
-- The bulk relay/LED status parsing has a per-item fallback if the bulk call
-  ever fails or returns an unrecognized shape (see `gardenApiClient.js`); this
-  was validated against real response shapes but firmware updates could change
-  them again — see [Diagnostics](#diagnostics-log_leveldebug) if that happens.
-- Status polling (Dashboard/Irrigation tab) is short-interval HTTP polling,
-  not a push/WebSocket mechanism — "near real-time" at whatever interval is
-  configured in Settings (default 3s).
