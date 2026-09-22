@@ -851,3 +851,25 @@ Deployed layout:
 - Status polling (Dashboard/Irrigation tab) is short-interval HTTP polling,
   not a push/WebSocket mechanism — "near real-time" at whatever interval is
   configured in Settings (default 3s).
+
+# Command Line Utilities
+
+## Irrigation PowerController
+
+Must be at command line locally on the Raspberry Pi.
+
+`irrigation.py`
+
+**Usage**
+
+    irrigation.py -r valve1 -a on
+    irrigation.py -r valve1 -a off
+    irrigation.py -r valve1 -a status
+    irrigation.py -r all -a status
+
+**Output**
+
+    {"relay": "valve1", "status": "on"}
+    {"relay": "valve1", "status": "off"}
+    {"relay": "valve1", "status": "off"}
+    {"valve1": "off", "nearbed": "off", "mag": "off", "plants": "off", "valve5": "off", "pump1": "off", "pump2": "off"}
