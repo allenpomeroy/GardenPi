@@ -70,17 +70,6 @@ All software for this project has been completely rewritten to one integrated pr
   adafruit-circuitpython-mcp230xx
 - No native modules are used (bcryptjs instead of bcrypt, a JSON file instead of SQLite) specifically so `npm install` works cleanly on a Raspberry Pi without a C build toolchain.
 
-### GardenPi Control Web UI
-
-A modern web UI (TLS-only, port 8787) for this GardenPi irrigation
-system: a configurable-widget **Dashboard**, an **Irrigation** tab for direct
-valve/pump control, a **Schedule** tab to drive the in-app scheduler, and a **Configuration** tab. Implemented as a Gunicorn app in node.
-
-It talks to the real **GardenPi REST API** (Bearer-token auth,
-relay-based irrigation control, LED status, ADC sensors, a weather endpoint)
-running on the Pi, with an in-memory simulation mode for development/demo
-without hardware.
-
 ### Quickstart
 
 Download the zip file from GitHub. Unzip then run the install steps. Open `https://<host>:8787` — you'll be prompted to create the admin account on first visit.
@@ -136,6 +125,17 @@ sudo chgrp certificates /etc/pki/tls/private/node.key
 Assumes pi user has already been added to certificates group.
 
 Navigate to Configuration tab, set a unique API bearer token in Web UI and API configuration panes.  Set a unique session secret in Web UI pane.  These can both be alphanumeric strings.  
+
+### GardenPi Control Web UI
+
+A modern web UI (TLS-only, port 8787) for this GardenPi irrigation
+system: a configurable-widget **Dashboard**, an **Irrigation** tab for direct
+valve/pump control, a **Schedule** tab to drive the in-app scheduler, and a **Configuration** tab. Implemented as a Gunicorn app in node.
+
+It talks to the real **GardenPi REST API** (Bearer-token auth,
+relay-based irrigation control, LED status, ADC sensors, a weather endpoint)
+running on the Pi, with an in-memory simulation mode for development/demo
+without hardware.
 
 ### Testing
 
