@@ -249,9 +249,35 @@ for local dev/testing without touching `/opt/gardenpi`).
 ## The GardenAPI integration
 
 The adapter (`server/gardenApiClient.js`) implements the documented **GardenPi
-REST API v1.0**, adjusted to match the *actual* response shapes
-observed from a real controller in production (a couple of details differed
-from the original written spec — noted below).
+REST API v1.0**.
+
+### Authentication
+
+All endpoints except `/api/health` require authentication with a bearer token.
+
+Authentication token is supplied using the HTTP `Authorization` header:
+```
+Authorization: Bearer YOUR-API-TOKEN
+```
+#### Responses
+Missing token
+```
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+{
+  "error": "No authorization token provided"
+}
+```
+Invalid token
+```
+HTTP/1.1 403 Forbidden
+Content-Type: application/json
+{
+  "error": "Invalid authorization token"
+}
+```
+
+### Endpoints
 
 | Purpose | Method | Path | Auth |
 |---|---|---|---|
