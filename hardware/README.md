@@ -1,5 +1,21 @@
 # Hardware
 
+## PiController
+
+PiControllerV2.2, 5.1 and 7.1 expansion PCB
+- MCP23017 for 16 additional GPIO lines accessed via I2C
+- MCP3008 Analog Digital Converter accessed via native GPIO SPI interface
+  - Daylight level 3V3
+  - Wind Direction 3V3
+  - 3x Soil moisture 3V3
+  - Water pressure 5V
+  - PowerController 5V monitor
+  - Auxillary 5V input
+- Native GPIO lines on the Raspberry Pi
+  - Rain, Wind sensors
+- Native I2C hardware (Bus 1) and software (Bus 3) busses
+  - Si7021 Temp+Humidity sensors internal and external
+
 ## PowerController
 Power controller for Garden irrigation project. See https://ogg.pomeroy.us/2022/12/building-an-irrigation-power-controller
 
