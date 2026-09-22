@@ -854,9 +854,13 @@ Deployed layout:
 
 # Command Line Utilities
 
-## Irrigation PowerController
+Must be at command line, `pi` user, on the Raspberry Pi.  CLI tools call the
+expected socket for each handler.  Likely hardcoded, does not read the 
+`/opt/gardenpi/config/garden.json` config file for the socket paths.
 
-Must be at command line locally on the Raspberry Pi.
+Users are encouraged to use the GardenPi Web UI.
+
+## Irrigation PowerController
 
 `irrigation.py`
 
@@ -873,3 +877,26 @@ Must be at command line locally on the Raspberry Pi.
     {"relay": "valve1", "status": "off"}
     {"relay": "valve1", "status": "off"}
     {"valve1": "off", "nearbed": "off", "mag": "off", "plants": "off", "valve5": "off", "pump1": "off", "pump2": "off"}
+
+## PiController - ADC
+
+Intended to provide single point of direct contact for the MCP3008 ADC chip used in my PiController expansion boards.
+Client program  adc.py  communicates with handler to ask for voltage reading on any channel
+
+**Usage**
+
+    adc.py {channel} --loop
+
+   channel must be 0-7 or "all"
+   --loop (-l) will display the requested channel(s) continuously
+
+## PiController - System LEDs
+
+Intended to provide single point of direct contact for the expansion MCP23017 chip used in my PiController expansion boards.
+Client program  leds.py  communicates with handler to ask for LED status and send control commands.
+
+**Usage**
+
+    leds.py {} 
+
+   channel must be 0-7 or "all"
