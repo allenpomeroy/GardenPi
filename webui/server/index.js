@@ -1,4 +1,4 @@
-// GardenPi Control v2.0.0 — server/index.js
+// GardenPi Control v2.1.0 — server/index.js
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
@@ -20,6 +20,7 @@ const logsRoutes = require('./routes/logs');
 const activityRoutes = require('./routes/activity');
 const configRoutes = require('./routes/config');
 const usersRoutes = require('./routes/users');
+const systemRoutes = require('./routes/system');
 
 const app = express();
 app.disable('x-powered-by');
@@ -53,7 +54,17 @@ app.use((req, res, next) => {
 // show the running version without needing a session yet. `version` is this
 // webui package's own version (package.json); `configVersion` is
 // garden.json's config.version (the shared GardenPi config/system version).
-app.get('/api/version', (req, res) => res.json({ ok: true, version: APP_VERSION, configVersion: config.configVersion }));
+//
+// configVersion is read fresh from disk on every call (not the startup
+// cache) so the header badge reflects a save from the Configuration page
+// straight away. Falls back to the startup value if the file can't be read.
+app.get('/api/version', (req, res) => {
+  let configVersion = config.configVersion;
+  try {
+    configVersion = JSON.parse(fs.readFileSync(config._meta.configPath, 'utf8'))?.config?.version || configVersion;
+  } catch { /* keep the cached value */ }
+  res.json({ ok: true, version: APP_VERSION, configVersion });
+});
 
 // Public (no auth) -- serves the project README.md, linked from the bottom
 // of the Configuration page's Advanced section. README.md lives at the repo
@@ -77,6 +88,9 @@ app.use('/api/config', requireAuth, configRoutes);
 // separate from /api/config since users live in users.json (server/db.js),
 // never in garden.json (see the note at the top of server/db.js).
 app.use('/api/users', requireAuth, usersRoutes);
+// Services card on the Configuration page: status/restart of the
+// gardenpi-* systemd units, plus reboot/shutdown (see server/systemControl.js).
+app.use('/api/system', requireAuth, systemRoutes);
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('*', (req, res) => {

@@ -1,4 +1,15 @@
-// GardenPi Control v2.0.0 — server/routes/config.js
+// GardenPi Control v2.1.0 — server/routes/config.js
+//
+// v2.1.0 2026/09/23
+// - fixed: config.last_changed and config.version were never updated on
+//   save. Every save that actually changes something now stamps
+//   config.last_changed (local time with UTC offset, same format as the
+//   shipped file) and bumps the patch component of config.version
+//   (3.0.6 -> 3.0.7). Both are computed from the file ON DISK, never from
+//   what the browser sent, so two admins saving back-to-back can't both
+//   produce the same version number.
+// - a save with no real changes is now a no-op (no rewrite, no backup
+//   file, no version bump).
 //
 // Read/write access to the FULL garden.json file -- not just the "webui"
 // stanza this app owns, but also the config/hardware/handlers stanzas that
@@ -17,6 +28,40 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../logger');
 const { CONFIG_PATH } = require('../config');
+
+// ---- config.version / config.last_changed stamping ----
+
+// ISO 8601 in the Pi's local time with its UTC offset, e.g.
+// 2026-09-23T14:05:09-05:00 -- matches the format already used in
+// garden.json rather than a UTC "Z" timestamp.
+function localIsoWithOffset(d = new Date()) {
+  const pad = n => String(Math.abs(Math.trunc(n))).padStart(2, '0');
+  const offsetMin = -d.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? '+' : '-';
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+    `${sign}${pad(offsetMin / 60)}:${pad(offsetMin % 60)}`;
+}
+
+// "3.0.6" -> "3.0.7". Anything that isn't MAJOR.MINOR.PATCH (optionally
+// with a suffix, e.g. "3.0.6-dev") is returned unchanged -- better to
+// leave a hand-set version alone than to guess at a format.
+function bumpPatchVersion(version) {
+  const m = /^(\d+)\.(\d+)\.(\d+)(.*)$/.exec(String(version ?? '').trim());
+  if (!m) return null;
+  return `${m[1]}.${m[2]}.${Number(m[3]) + 1}${m[4]}`;
+}
+
+// Deep copy with the two auto-managed fields removed, so "did anything
+// change?" ignores them (the browser may send back stale copies of both).
+function withoutStampFields(cfg) {
+  const copy = JSON.parse(JSON.stringify(cfg || {}));
+  if (copy.config && typeof copy.config === 'object') {
+    delete copy.config.version;
+    delete copy.config.last_changed;
+  }
+  return copy;
+}
 
 // Always read the file fresh from disk (bypassing server/config.js's
 // once-at-startup cache) so the editor shows what's actually on disk right
@@ -54,6 +99,37 @@ router.put('/current', (req, res) => {
   const backupPath = `${CONFIG_PATH}.bak.${new Date().toISOString().replace(/[:.]/g, '-')}`;
 
   try {
+    // Read what's on disk now: it's both the change-detection baseline
+    // and the source of the version number being bumped.
+    let onDisk = null;
+    if (fs.existsSync(CONFIG_PATH)) {
+      try { onDisk = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
+      catch { onDisk = null; } // unreadable/corrupt -- treat as changed and overwrite
+    }
+
+    if (onDisk && JSON.stringify(withoutStampFields(onDisk)) === JSON.stringify(withoutStampFields(newConfig))) {
+      return res.json({
+        ok: true,
+        unchanged: true,
+        message: 'No changes to save.',
+        version: onDisk.config?.version ?? null,
+        last_changed: onDisk.config?.last_changed ?? null
+      });
+    }
+
+    if (!newConfig.config || typeof newConfig.config !== 'object' || Array.isArray(newConfig.config)) {
+      newConfig.config = {};
+    }
+    const previousVersion = onDisk?.config?.version ?? newConfig.config.version;
+    const nextVersion = bumpPatchVersion(previousVersion);
+    if (nextVersion) {
+      newConfig.config.version = nextVersion;
+    } else {
+      if (previousVersion !== undefined) newConfig.config.version = previousVersion;
+      logger.warn('config.version is not MAJOR.MINOR.PATCH; left unchanged on save', { version: previousVersion });
+    }
+    newConfig.config.last_changed = localIsoWithOffset();
+
     if (fs.existsSync(CONFIG_PATH)) {
       fs.copyFileSync(CONFIG_PATH, backupPath);
     }
@@ -71,13 +147,17 @@ router.put('/current', (req, res) => {
     logger.info('garden.json updated via the Configuration tab', {
       path: CONFIG_PATH,
       backup: fs.existsSync(backupPath) ? backupPath : null,
-      topLevelKeys: Object.keys(newConfig)
+      topLevelKeys: Object.keys(newConfig),
+      version: newConfig.config.version,
+      lastChanged: newConfig.config.last_changed
     });
 
     res.json({
       ok: true,
-      message: 'Saved. Restart the affected service(s) -- including this web UI -- for the changes to take effect.',
-      backup: fs.existsSync(backupPath) ? backupPath : null
+      message: `Saved as version ${newConfig.config.version}. Restart the affected service(s) -- including this web UI -- for the changes to take effect.`,
+      backup: fs.existsSync(backupPath) ? backupPath : null,
+      version: newConfig.config.version,
+      last_changed: newConfig.config.last_changed
     });
   } catch (err) {
     logger.error('Failed to write garden.json from the Configuration tab', { path: CONFIG_PATH, error: err.message });
@@ -87,3 +167,5 @@ router.put('/current', (req, res) => {
 });
 
 module.exports = router;
+// Exported for tests.
+module.exports._internal = { localIsoWithOffset, bumpPatchVersion, withoutStampFields };

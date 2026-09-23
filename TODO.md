@@ -4,18 +4,30 @@ As of 2026/09/23
 
 ## Errors and errata
 
-`/opt/gardenpi/config/garden.json` updates
-- Fields are not updated on Configuration > Save changes:
-  - config.last_changed
-  - config.version
+(none open)
 
 ## Additional functionality
 
-- add ability to restart services via webui
-  - during install / setup add sudo no-password for all gardenpi-* services
-  - add list of gardenpi-* services in Configuration UI
-  - add Restart button for each as well as Restart All
-  - will not add a Stop button, since if gardenpi-webui stops, ssh command line is required to restart
-- consider adding System Restart button and sudo function
-- consider adding System Shutdown button and sudo function, with PiJuice battery it will actually power off the system
+- consider a per-service "View log" button on Configuration > Services
+  (last N lines of `journalctl -u <service>`; the webui user would need to
+  be in the `systemd-journal` group, no sudo needed)
 
+## Done
+
+- 2026/09/23 System uptime badge in the header, left of the API badge
+  (`Up 5h 12m`, `Up 45d 3h`, `Up 1y 45d`; hover for exact boot time).
+
+- 2026/09/23 `config.last_changed` and `config.version` are now updated on
+  Configuration > Save changes (patch version bump, local timestamp). A save
+  with no real changes is a no-op.
+- 2026/09/23 Restart services from the web UI (Configuration > Services):
+  status of every gardenpi-* service, a Restart button for each, and
+  Restart All. No Stop button, by design.
+  - `scripts/setup-sudoers.sh` grants the exact, password-less sudo rules
+    needed; `install-gardenpi.sh` runs it.
+- 2026/09/23 System Reboot and Shut down buttons (typed confirmation; all
+  valves/pumps are turned off first). Shut down runs
+  `scripts/pijuice-safe-shutdown.py` so the PiJuice powers the Pi back on
+  when external power returns; refused if the PiJuice doesn't answer.
+- 2026/09/23 install-gardenpi.sh: runs from any directory; the missing
+  `add-remove-logs-crontab.sh` now exists.

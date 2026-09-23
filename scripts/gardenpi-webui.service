@@ -1,4 +1,9 @@
 [Unit]
+# v2.2
+# - note: do NOT add NoNewPrivileges=yes (or other sandboxing that implies
+#   it, e.g. RestrictSUIDSGID/ProtectSystem=strict) -- it blocks sudo, which
+#   the Configuration > Services restart/reboot/shutdown buttons rely on.
+#   See scripts/setup-sudoers.sh.
 # v2.1
 # Fixed: this previously referenced "garden-api.service", a stale unit
 # name from before the api service was renamed - since no such unit

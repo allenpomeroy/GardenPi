@@ -135,6 +135,7 @@ body {
 .badge {
   background: rgba(255,255,255,0.14); padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem;
 }
+.uptime-badge { font-variant-numeric: tabular-nums; white-space: nowrap; cursor: default; }
 .version-badge { background: transparent; color: #a9c2b6; padding: 0.25rem 0; font-size: 0.72rem; }
 .theme-select {
   background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.25);
@@ -279,6 +280,8 @@ table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0
 @media (max-width: 640px) {
   .topbar { flex-wrap: wrap; height: auto; padding: 0.6rem; gap: 0.6rem; }
   .tabs { order: 3; width: 100%; overflow-x: auto; }
+  .topbar-right { flex-wrap: wrap; gap: 0.5rem 0.7rem; }
+  .topbar-right .badge { white-space: nowrap; }
 }
 
 .section-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-600); margin: 1.1rem 0 0.6rem; }
@@ -350,6 +353,21 @@ table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0
    squeezed into a 1/3-width card. */
 .config-users-card { grid-column: 1 / -1; margin-bottom: 1rem; }
 .config-users-card table.config-map-table { max-width: 640px; }
+
+/* ---------- Services card (Configuration > Services) ---------- */
+.config-services-card { grid-column: 1 / -1; margin-bottom: 1rem; }
+.svc-table { max-width: 860px; }
+.svc-table td { vertical-align: middle; }
+.svc-table td .hint { font-size: 0.75rem; margin: 0.1rem 0 0; }
+.svc-dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.45rem; vertical-align: middle; background: var(--gray-400); }
+.svc-dot.svc-active { background: var(--green-500); }
+.svc-dot.svc-transition { background: var(--amber); }
+.svc-dot.svc-failed { background: var(--red); }
+.svc-dot.svc-missing { background: transparent; border: 1px dashed var(--gray-400); }
+.svc-actions { flex-wrap: wrap; align-items: center; margin: 0.4rem 0 0.6rem; }
+.svc-actions-spacer { flex: 1 1 1rem; }
+.svc-sudo-hint { margin-bottom: 0.6rem; font-size: 0.85rem; }
+.svc-sudo-hint code, .system-confirm-label code { background: var(--code-chip-bg); padding: 0.05rem 0.35rem; border-radius: 4px; }
 
 .config-danger-banner {
   background: var(--tint-red-bg-strong); border: 1px solid var(--red); color: var(--tint-red-text);

@@ -1,4 +1,4 @@
-// GardenPi Control v2.0.0 — public/js/app.js
+// GardenPi Control v2.1.0 — public/js/app.js
 (() => {
   'use strict';
 
@@ -469,6 +469,10 @@
       case 'valve_off_all': return `All valves and pumps turned OFF (${e.source})`;
       case 'schedule_deferred': return `Deferred: ${e.message}`;
       case 'schedule_updated': return e.message;
+      case 'service_restart': return `Service ${e.unit} restarted (${e.source})`;
+      case 'service_restart_all': return `All GardenPi services restarted (${e.source})`;
+      case 'system_reboot': return `System reboot requested (${e.source})`;
+      case 'system_poweroff': return `System shutdown requested (${e.source})`;
       default: return e.message || e.type;
     }
   }
@@ -697,10 +701,56 @@
   // the single source of truth, edited on the Configuration page.
   let maxRunMinutes = 30;
 
+  // ---- Uptime badge (topbar, left of the API badge) ----
+  // Compact form scales with how long the Pi has been up, so a controller
+  // that runs for years between reboots still gets a short, readable badge:
+  //   Up 42s | Up 17m | Up 5h 12m | Up 45d 3h | Up 1y 45d | Up 3y 2d
+  // A "year" is 365 days (calendar-exact isn't worth it for a badge); the
+  // tooltip carries the exact boot time and a full breakdown.
+  function uptimeParts(totalSeconds) {
+    let s = Math.max(0, Math.floor(totalSeconds));
+    const y = Math.floor(s / (365 * 86400)); s -= y * 365 * 86400;
+    const d = Math.floor(s / 86400); s -= d * 86400;
+    const h = Math.floor(s / 3600); s -= h * 3600;
+    const m = Math.floor(s / 60); s -= m * 60;
+    return { y, d, h, m, s };
+  }
+
+  function formatUptimeShort(totalSeconds) {
+    const { y, d, h, m, s } = uptimeParts(totalSeconds);
+    if (y > 0) return `${y}y ${d}d`;
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m`;
+    return `${s}s`;
+  }
+
+  function formatUptimeLong(totalSeconds) {
+    const { y, d, h, m } = uptimeParts(totalSeconds);
+    const part = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+    const parts = [];
+    if (y) parts.push(part(y, 'year'));
+    if (y || d) parts.push(part(d, 'day'));
+    parts.push(part(h, 'hour'), part(m, 'minute'));
+    return parts.join(', ');
+  }
+
+  function renderUptimeBadge(host) {
+    const badge = document.getElementById('uptime-badge');
+    if (!badge) return;
+    const secs = Number(host?.uptimeSeconds);
+    if (!Number.isFinite(secs)) { badge.classList.add('hidden'); return; }
+    badge.textContent = `Up ${formatUptimeShort(secs)}`;
+    const since = host.bootTime ? new Date(host.bootTime).toLocaleString() : '';
+    badge.title = `System uptime: ${formatUptimeLong(secs)}${since ? `\nRunning since ${since}` : ''}`;
+    badge.classList.remove('hidden');
+  }
+
   async function refreshStatus() {
     const status = await api('/api/status/all');
     if (!status.ok) return;
     lastStatus = status;
+    renderUptimeBadge(status.host);
     renderDashboard(status);
     renderValveCards(status);
     if (widgetPrefs.activity) refreshActivityIncremental();
@@ -918,6 +968,14 @@
   // /api/config/current at all. loadUsers() below is the only writer of
   // this cache; renderCommonSettings() only ever reads it.
   let usersCache = [];
+
+  // Services card (Configuration > Services): gardenpi-* systemd unit
+  // status from GET /api/system/services. Like usersCache, this never flows
+  // through configWorkingCopy/garden.json. null = not loaded yet.
+  let servicesCache = null;
+  let servicesMessage = '';
+  let servicesRestartEnabled = true;
+  let servicesBusy = false; // true while a restart/reboot is in flight
 
   function humanizeConfigKey(key) {
     return key
@@ -1225,6 +1283,319 @@
     </div>`;
   }
 
+  // ---- Services (Configuration > Services) ----
+  // Rendered into #config-services-node, which renderCommonSettings()
+  // creates; refreshServicesNode() re-fills just that node so the periodic
+  // status refresh never re-renders (and steals focus from) the config form.
+  // Clicks are handled by one delegated listener on #config-common (see
+  // wireServicesDelegation), so nothing needs re-wiring after a re-render.
+  function serviceStateClass(svc) {
+    if (!svc.installed) return 'svc-missing';
+    if (svc.activeState === 'active') return 'svc-active';
+    if (svc.activeState === 'failed') return 'svc-failed';
+    if (svc.activeState === 'activating' || svc.activeState === 'deactivating' || svc.activeState === 'reloading') return 'svc-transition';
+    return 'svc-inactive';
+  }
+
+  function formatServiceSince(iso) {
+    if (!iso) return '—';
+    const dt = new Date(iso);
+    const secs = Math.max(0, Math.round((Date.now() - dt.getTime()) / 1000));
+    let ago;
+    if (secs < 90) ago = `${secs}s ago`;
+    else if (secs < 5400) ago = `${Math.round(secs / 60)}m ago`;
+    else if (secs < 172800) ago = `${Math.round(secs / 3600)}h ago`;
+    else ago = `${Math.round(secs / 86400)}d ago`;
+    return `${formatEventTimestamp(iso)} (${ago})`;
+  }
+
+  function renderServicesInner() {
+    if (servicesCache === null) {
+      return `<p class="hint">${escapeHtmlAttr(servicesMessage || 'Loading services…')}</p>`;
+    }
+    const disabledAll = servicesBusy || !servicesRestartEnabled;
+    const rows = servicesCache.map(svc => {
+      const state = svc.installed
+        ? `${svc.activeState}${svc.subState && svc.subState !== svc.activeState ? ` (${svc.subState})` : ''}`
+        : 'not installed';
+      const btnDisabled = disabledAll || !svc.installed ? 'disabled' : '';
+      const note = svc.self ? ' <span class="hint">(this web UI)</span>' : '';
+      return `<tr>
+        <td><code>${escapeHtmlAttr(svc.name)}</code>${note}<div class="hint">${escapeHtmlAttr(svc.label)}</div></td>
+        <td><span class="svc-dot ${serviceStateClass(svc)}"></span>${escapeHtmlAttr(state)}</td>
+        <td>${escapeHtmlAttr(svc.installed ? formatServiceSince(svc.since) : '—')}</td>
+        <td><button type="button" class="btn-secondary btn-small" data-service-restart="${escapeHtmlAttr(svc.unit)}" ${btnDisabled}>Restart</button></td>
+      </tr>`;
+    }).join('');
+
+    const sudoHint = servicesRestartEnabled ? '' : `
+      <div class="config-warning svc-sudo-hint">
+        Restart, reboot and shutdown are not permitted for this web UI's user yet.
+        On the Pi, run <code>sudo /opt/gardenpi/scripts/setup-sudoers.sh</code>, then reload this page.
+      </div>`;
+
+    return `${sudoHint}
+      <table class="config-map-table svc-table">
+        <thead><tr><th>Service</th><th>Status</th><th>Since</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${servicesMessage ? `<p class="hint">${escapeHtmlAttr(servicesMessage)}</p>` : ''}
+      <div class="row-actions svc-actions">
+        <button type="button" class="btn-secondary btn-small" data-service-refresh ${servicesBusy ? 'disabled' : ''}>Refresh</button>
+        <button type="button" class="btn-primary btn-small" data-service-restart-all ${disabledAll ? 'disabled' : ''}>Restart all</button>
+        <span class="svc-actions-spacer"></span>
+        <button type="button" class="btn-danger btn-small" data-system-power="reboot" ${disabledAll ? 'disabled' : ''}>Reboot system</button>
+        <button type="button" class="btn-danger btn-small" data-system-power="shutdown" ${disabledAll ? 'disabled' : ''}>Shut down system</button>
+      </div>
+      <p class="hint">Restart applies saved garden.json changes to that service. There is no Stop
+        button on purpose: a stopped web UI can only be brought back from an ssh session.
+        "Restart all" restarts every service except the one-shot hardware init, in startup order.</p>`;
+  }
+
+  function renderServicesCard() {
+    return `<div id="config-services-node">${renderServicesInner()}</div>`;
+  }
+
+  function refreshServicesNode() {
+    const node = document.getElementById('config-services-node');
+    if (node) node.innerHTML = renderServicesInner();
+  }
+
+  async function loadServices() {
+    const result = await api('/api/system/services');
+    if (result.ok) {
+      servicesCache = result.services;
+      servicesRestartEnabled = result.restartControlsEnabled !== false;
+      servicesMessage = '';
+    } else {
+      servicesCache = null;
+      servicesMessage = result.message || 'Could not read service status.';
+    }
+    refreshServicesNode();
+  }
+
+  // After an action that restarts this web UI (or the whole Pi), poll the
+  // public /api/version endpoint with plain fetch -- not api(), which would
+  // toast on every failed attempt -- until the server answers again.
+  async function waitForServerReturn({ maxWaitMs = 180000, initialDelayMs = 3000 } = {}) {
+    await new Promise(r => setTimeout(r, initialDelayMs));
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch('/api/version', { cache: 'no-store', credentials: 'same-origin' });
+        if (res.ok) return true;
+      } catch { /* still down */ }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    return false;
+  }
+
+  async function afterSelfRestart(message, maxWaitMs) {
+    servicesBusy = true;
+    servicesMessage = message;
+    refreshServicesNode();
+    showToast(message, 'info');
+    const back = await waitForServerReturn({ maxWaitMs });
+    servicesBusy = false;
+    if (back) {
+      servicesMessage = '';
+      showToast('Web UI is back.', 'success');
+      await loadVersionBadge();
+      await loadServices();
+    } else {
+      servicesMessage = 'The web UI has not come back yet. Check the Pi, then reload this page.';
+      refreshServicesNode();
+    }
+  }
+
+  async function restartOneService(unit) {
+    const svc = (servicesCache || []).find(s => s.unit === unit);
+    let question = `Restart ${unit}?`;
+    if (svc?.self) {
+      question = 'Restart the web UI? This page will disconnect for a few seconds and reconnect on its own.';
+    } else if (svc?.oneshot) {
+      question = `Restart ${unit}? This re-runs the PiController hardware initialisation, and systemd will also ` +
+        'restart the LEDs, ADC, irrigation and weather handlers (they depend on it). Any running valve will stop.';
+    } else if (unit === 'gardenpi-irrigation.service') {
+      question = `Restart ${unit}? Any valve or pump that is currently running will be turned off.`;
+    }
+    if (!confirm(question)) return;
+
+    servicesBusy = true;
+    servicesMessage = `Restarting ${unit}…`;
+    refreshServicesNode();
+    const result = await api(`/api/system/services/${encodeURIComponent(unit)}/restart`, { method: 'POST' });
+    servicesBusy = false;
+    if (!result.ok) {
+      servicesMessage = '';
+      showToast(result.message, 'error');
+      await loadServices();
+      return;
+    }
+    if (result.selfRestarting) { await afterSelfRestart(result.message, 60000); return; }
+    showToast(result.message, 'success');
+    servicesMessage = '';
+    await loadServices();
+  }
+
+  async function restartAllServices() {
+    if (!confirm('Restart all GardenPi services? Any running valve or pump will be turned off, and this page ' +
+      'will disconnect briefly while the web UI restarts.')) return;
+    const result = await api('/api/system/services/restart-all', { method: 'POST' });
+    if (!result.ok) { showToast(result.message, 'error'); return; }
+    await afterSelfRestart(result.message, 120000);
+  }
+
+  // Reboot / shut down use a typed confirmation (modal-system-confirm)
+  // rather than a one-click confirm(), since shutdown in particular can't
+  // be undone remotely.
+  const POWER_ACTIONS = {
+    reboot: {
+      title: 'Reboot the GardenPi?',
+      body: 'All valves and pumps will be turned off, every service will stop, and the Pi will restart. ' +
+        'This page will reconnect when it is back (usually 1–2 minutes).',
+      phrase: 'REBOOT', button: 'Reboot now', endpoint: '/api/system/reboot'
+    },
+    shutdown: {
+      title: 'Shut down the GardenPi?',
+      body: 'All valves and pumps will be turned off and the Pi will shut down through the PiJuice safe-shutdown ' +
+        'script: the PiJuice cuts power about 60 seconds after the Pi halts, and turns it back on when external ' +
+        'power is present and the battery is charging. Scheduled watering will not run while it is off.',
+      phrase: 'SHUTDOWN', button: 'Shut down now', endpoint: '/api/system/shutdown'
+    }
+  };
+  let pendingPowerAction = null;
+
+  function openPowerModal(action) {
+    const def = POWER_ACTIONS[action];
+    if (!def) return;
+    pendingPowerAction = action;
+    document.getElementById('system-confirm-title').textContent = def.title;
+    document.getElementById('system-confirm-body').textContent = def.body;
+    document.getElementById('system-confirm-phrase').textContent = def.phrase;
+    const input = document.getElementById('system-confirm-input');
+    input.value = '';
+    const btn = document.getElementById('btn-system-confirm');
+    btn.textContent = def.button;
+    btn.disabled = true;
+    document.getElementById('system-confirm-error').textContent = '';
+    document.getElementById('modal-system-confirm').classList.remove('hidden');
+    input.focus();
+  }
+
+  function closePowerModal() {
+    pendingPowerAction = null;
+    document.getElementById('modal-system-confirm').classList.add('hidden');
+  }
+
+  document.getElementById('system-confirm-input').addEventListener('input', (e) => {
+    const def = POWER_ACTIONS[pendingPowerAction];
+    document.getElementById('btn-system-confirm').disabled = !def || e.target.value.trim().toUpperCase() !== def.phrase;
+  });
+  document.getElementById('btn-cancel-system-confirm').addEventListener('click', closePowerModal);
+  document.getElementById('btn-system-confirm').addEventListener('click', async () => {
+    const action = pendingPowerAction;
+    const def = POWER_ACTIONS[action];
+    if (!def) return;
+    const btn = document.getElementById('btn-system-confirm');
+    btn.disabled = true;
+    const result = await api(def.endpoint, { method: 'POST' });
+    if (!result.ok) {
+      document.getElementById('system-confirm-error').textContent = result.message || 'The request failed.';
+      btn.disabled = false;
+      return;
+    }
+    closePowerModal();
+    if (result.relaysStopped === false) {
+      showToast('Warning: could not confirm all valves/pumps were turned off before the system went down.', 'error');
+    }
+    if (action === 'shutdown') {
+      stopPolling();
+      servicesBusy = true;
+      servicesMessage = result.message;
+      refreshServicesNode();
+      showToast(result.message, 'info');
+      await watchShutdown();
+      return;
+    }
+    stopPolling();
+    await afterSelfRestart(result.message, 300000);
+    startPolling();
+  });
+
+  // After a shutdown request, reports what actually happened: the Pi never
+  // went down (the PiJuice script failed -- see the web UI log), it went
+  // down and stayed down (expected), or it went down and came straight back
+  // (PiJuice wake-on-charge restarted it). Checks /api/version every 5s
+  // for up to 4 minutes.
+  async function watchShutdown() {
+    const reachable = async () => {
+      try {
+        const res = await fetch('/api/version', { cache: 'no-store', credentials: 'same-origin' });
+        return res.ok;
+      } catch { return false; }
+    };
+    const started = Date.now();
+    let wentDown = false;
+    while (Date.now() - started < 240000) {
+      await new Promise(r => setTimeout(r, 5000));
+      const up = await reachable();
+      if (!up && !wentDown) {
+        wentDown = true;
+        servicesMessage = 'The Pi has shut down. The PiJuice will cut power about 60 seconds after halt.';
+        refreshServicesNode();
+      } else if (up && wentDown) {
+        servicesBusy = false;
+        servicesMessage = 'The Pi shut down and has already started again (PiJuice wake-up).';
+        showToast(servicesMessage, 'info');
+        await loadVersionBadge();
+        await loadServices();
+        startPolling();
+        return;
+      } else if (up && !wentDown && Date.now() - started > 60000) {
+        servicesBusy = false;
+        servicesMessage = 'Shutdown did not happen: the web UI is still running. Check the web UI log for ' +
+          '"PiJuice shutdown script" errors.';
+        showToast(servicesMessage, 'error');
+        await loadServices();
+        startPolling();
+        return;
+      }
+    }
+    if (wentDown) {
+      servicesMessage = 'The Pi is shut down. This page will not reconnect by itself; reload it once the Pi is back.';
+      refreshServicesNode();
+    }
+  }
+
+  let servicesDelegationWired = false;
+  function wireServicesDelegation() {
+    if (servicesDelegationWired) return;
+    const root = document.getElementById('config-common');
+    if (!root) return;
+    servicesDelegationWired = true;
+    root.addEventListener('click', (e) => {
+      const restartBtn = e.target.closest('[data-service-restart]');
+      if (restartBtn && !restartBtn.disabled) { restartOneService(restartBtn.dataset.serviceRestart); return; }
+      const allBtn = e.target.closest('[data-service-restart-all]');
+      if (allBtn && !allBtn.disabled) { restartAllServices(); return; }
+      const refreshBtn = e.target.closest('[data-service-refresh]');
+      if (refreshBtn && !refreshBtn.disabled) { loadServices(); return; }
+      const powerBtn = e.target.closest('[data-system-power]');
+      if (powerBtn && !powerBtn.disabled) { openPowerModal(powerBtn.dataset.systemPower); }
+    });
+  }
+  wireServicesDelegation();
+
+  // Keep the status column current while the Configuration tab is open.
+  setInterval(() => {
+    const tab = document.getElementById('tab-config');
+    if (!servicesBusy && servicesCache !== null && tab && tab.classList.contains('active') &&
+        document.visibilityState === 'visible' && !document.getElementById('app').classList.contains('hidden')) {
+      loadServices();
+    }
+  }, 10000);
+
   function renderCommonSettings() {
     const container = document.getElementById('config-common');
     if (!configWorkingCopy) return;
@@ -1296,6 +1667,10 @@
       <div class="config-area-card config-users-card">
         <h3>Users</h3>
         ${renderUsersCard()}
+      </div>
+      <div class="config-area-card config-services-card">
+        <h3>Services</h3>
+        ${renderServicesCard()}
       </div>
       <div class="config-area-card config-software-card">
         <h3>Software</h3>
@@ -1719,6 +2094,7 @@
     if (filePath2) filePath2.textContent = result.path;
     document.getElementById('config-confirm-path').textContent = result.path;
     refreshConfigEditor();
+    loadServices(); // independent of garden.json; fills #config-services-node when it arrives
   }
 
   document.getElementById('btn-save-config').addEventListener('click', () => {
@@ -1739,8 +2115,15 @@
       showToast(result.message, 'error');
       return;
     }
-    showToast('garden.json saved.', 'success');
+    if (result.unchanged) {
+      statusEl.style.color = '';
+      statusEl.textContent = result.message;
+      showToast(result.message, 'info');
+      return;
+    }
+    showToast(`garden.json saved (version ${result.version}).`, 'success');
     await loadConfigTab(); // reload fresh from disk so the form reflects exactly what's now stored
+    await loadVersionBadge(); // header badge shows config.version, which the save just bumped
     // Set the success message AFTER the reload, since loadConfigTab() re-renders
     // the tab but does not touch config-save-status itself.
     statusEl.style.color = '#2f6d4f';

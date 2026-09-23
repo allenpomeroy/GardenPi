@@ -79,6 +79,7 @@
       <button class="tab-btn" data-tab="config">Configuration</button>
     </nav>
     <div class="topbar-right">
+      <span id="uptime-badge" class="badge uptime-badge hidden" title=""></span>
       <span id="api-mode-badge" class="badge">—</span>
       <a id="weewx-link" class="btn-link hidden" href="#" target="_blank" rel="noopener noreferrer">WeeWx</a>
       <select id="theme-select" class="theme-select" title="Theme" aria-label="Theme">
@@ -184,6 +185,22 @@
       <button type="button" class="btn-secondary" id="btn-cancel-config-save">Cancel</button>
       <button type="button" class="btn-primary" id="btn-confirm-config-save">Save anyway</button>
     </div>
+  </div>
+</div>
+
+<!-- Reboot / shutdown (Configuration > Services): typed confirmation -->
+<div id="modal-system-confirm" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="system-confirm-title">Confirm</h3>
+    <p class="hint" id="system-confirm-body"></p>
+    <label class="system-confirm-label"><span>Type <code id="system-confirm-phrase"></code> to confirm</span>
+      <input type="text" id="system-confirm-input" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="btn-cancel-system-confirm">Cancel</button>
+      <button type="button" class="btn-danger" id="btn-system-confirm" disabled>Confirm</button>
+    </div>
+    <p class="auth-error" id="system-confirm-error"></p>
   </div>
 </div>
 

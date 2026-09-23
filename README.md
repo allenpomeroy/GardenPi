@@ -90,7 +90,7 @@ cd ..
 rmdir GardenPi-main
 cd /opt/gardenpi
 sudo /opt/gardenpi/scripts/fix-perms.sh
-sudo /opt/gardenpi/scripts/install-garden.sh
+sudo /opt/gardenpi/scripts/install-gardenpi.sh
 sudo /opt/gardenpi/scripts/restart-services.sh
 ```
 
@@ -580,6 +580,61 @@ curl -k -H "Authorization: Bearer <token>" "https://<host>:5000/api/leds/status"
 ## GardenPi Components Run As systemd Services
 
 Unit files `scripts/gardenpi-*.service` are used by add-services.sh to setup each service
+
+### Uptime
+
+The header shows how long the Pi has been up, left of the API badge. It
+switches units as uptime grows (`Up 42s`, `Up 5h 12m`, `Up 45d 3h`,
+`Up 1y 45d`); a year counts as 365 days. Hover over it for the full breakdown
+and the exact boot time. It is the uptime of the Pi itself (the host the web
+UI runs on), not of the web UI or API service.
+
+### Restarting services from the web UI
+
+**Configuration > Services** lists every `gardenpi-*` service with its live
+status, a **Restart** button for each, **Restart all**, and **Reboot system** /
+**Shut down system**. There is intentionally no Stop button: if
+`gardenpi-webui` is stopped, it can only be started again from an ssh session.
+
+- **Restart all** restarts every service except the one-shot `gardenpi-init`,
+  in one systemd transaction, so they stop and start in the same order as
+  `restart-services.sh`. The page reconnects on its own once the web UI is back.
+- Restarting `gardenpi-init` re-runs the PiController hardware initialisation,
+  and systemd also restarts the LEDs, ADC, irrigation and weather handlers,
+  because they `Require=` it.
+- **Reboot** / **Shut down** require typing `REBOOT` / `SHUTDOWN`, and turn off
+  every valve and pump through the API first.
+- **Shut down** runs `scripts/pijuice-safe-shutdown.py` rather than
+  `shutdown`/`systemctl poweroff` directly. The script sets the PiJuice to wake
+  on charge (5%) and to cut the 5V rail 60 seconds later, then halts the OS, so
+  the Pi powers back on when external power returns. It runs as the web UI's
+  user with the system `/usr/bin/python3`, which needs:
+  - the `pijuice` Python module: `sudo apt install pijuice-base`
+  - I2C access for that user: `sudo usermod -aG i2c pi` (default on Raspberry Pi OS)
+
+  Before anything is stopped, the web UI checks that the PiJuice answers. If it
+  doesn't, the shutdown is refused rather than halting a Pi with nothing set to
+  power it back on.
+
+These actions need password-less sudo for a small, fixed set of commands.
+`install-gardenpi.sh` sets this up; to do it by hand, or after changing the
+service user:
+
+```
+sudo /opt/gardenpi/scripts/setup-sudoers.sh               # user pi, restarts + reboot/poweroff
+sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-power    # restarts only
+sudo /opt/gardenpi/scripts/setup-sudoers.sh --user bob    # different service user
+sudo /opt/gardenpi/scripts/setup-sudoers.sh --remove      # take the permissions away again
+```
+
+This writes `/etc/sudoers.d/gardenpi` (validated with `visudo` before it is
+installed) allowing only exact `systemctl restart gardenpi-….service`,
+`systemctl reboot` and `shutdown -h now` command lines (the last is what
+`pijuice-safe-shutdown.py` runs). The script itself is deliberately not run as
+root: `/opt/gardenpi` is owned by the service user, and a root sudo rule for a
+file that user can edit would amount to giving it root. Until it is in
+place, the Services card still shows status but its buttons are disabled with
+a hint to run the script.
 
 ## Configuration Tab
 
