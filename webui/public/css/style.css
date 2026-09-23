@@ -345,6 +345,13 @@ table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0
   color: var(--green-700); text-transform: none; letter-spacing: normal;
 }
 .config-software-card { grid-column: 1 / -1; }
+/* API Reference pane: full width, between Software and Advanced. The
+   endpoint list is a collapsed <details> so the pane doesn't push Advanced
+   several screens down. */
+.config-api-reference-card { margin: 1rem 0; }
+.config-api-reference-card > .hint:first-of-type { margin-top: 0; }
+.api-reference-list > summary { cursor: pointer; font-weight: 600; color: var(--green-700); margin: 0.2rem 0 0.6rem; }
+.config-area-card .config-readme-link { margin: 0.9rem 0 0; }
 .config-software-card .config-node:first-child { margin-top: 0.3rem; }
 /* Users card: same full-width treatment as Software, but its own row
    between the 3-up card grid and the Software card (see the fixed order

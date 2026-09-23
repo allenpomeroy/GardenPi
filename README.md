@@ -669,7 +669,7 @@ Hardware" grouping used across GardenPi's configuration surfaces.
 |---|---|
 | **GardenPi System** (`config`) | Config Version *(read-only)*, Code Version *(read-only)*, Last Changed *(read-only)*, Global Log Level (dropdown), TLS Certificate File, TLS Key File, plus a **Users** block (add/remove accounts, change any account's password — see below; this is the one part of the GardenPi System card that isn't backed by `garden.json`) |
 | **Web UI** (`webui`) | Listener Port, Log Level (dropdown), API URL, API Access Token, Session Secret, Session Timeout (dropdown, `webui.settings.session_timeout_minutes`), Dashboard Refresh in seconds (`webui.settings.poll_interval_seconds`) |
-| **Software → API** (`handlers.api`) | Listener Port, Log Level (dropdown), Auth Token |
+| **API** (`handlers.api`) | Listener Port, Log Level (dropdown), API Access Token, then a link to this README (`/README.md`) |
 | **Software → ADC** (`handlers.adc`) | Listener Socket, Log Level (dropdown) |
 | **Software → LEDs** (`handlers.leds`) | Listener Socket, Log Level (dropdown) |
 | **Software → Irrigation** (`handlers.irrigation`) | Listener Socket, Log Level (dropdown), Max Valve Run Time (`max_valve_run_time`, seconds), Allow Concurrent Valves (toggle) |
@@ -725,12 +725,20 @@ identifiers — is always read-only text, matching the rule that hardware_id
 and LED labels can never be changed from the UI; only user_id, friendly
 names, pin numbers, and the settings above are editable.
 
-The very bottom of the Advanced section (below its **API** subsection) links
+The bottom of the **API** pane (first row of the Configuration tab) links
 back to this README (`/README.md`, served directly by `server/index.js` —
 `README.md` lives at the repo root, outside the `public/` folder that
-`express.static` exposes, so it gets its own small route) — mainly so an
-admin who's deep in the Advanced settings can jump straight to reference
-docs like the `weather.csv` layout below without needing repo access.
+`express.static` exposes, so it gets its own small route), so reference
+docs like the `weather.csv` layout below are reachable without repo access.
+
+### API Reference (between Software and Advanced)
+
+Swagger-style documentation of every endpoint `api.py` exposes: method,
+path, auth requirement, parameters, an example response and a ready-to-paste
+`curl` command built from the configured API URL. The endpoint list is
+collapsed by default (**Endpoints (7)**). Nothing in this pane is editable,
+and the curl examples use a `$TOKEN` placeholder rather than the real
+configured token.
 
 ### `weather.csv` column layout
 

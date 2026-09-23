@@ -1580,6 +1580,10 @@
     const root = document.getElementById('config-common');
     if (!root) return;
     servicesDelegationWired = true;
+    // 'toggle' doesn't bubble, so listen in the capture phase.
+    root.addEventListener('toggle', (e) => {
+      if (e.target.classList && e.target.classList.contains('api-reference-list')) apiReferenceOpen = e.target.open;
+    }, true);
     root.addEventListener('click', (e) => {
       const restartBtn = e.target.closest('[data-service-restart]');
       if (restartBtn && !restartBtn.disabled) { restartOneService(restartBtn.dataset.serviceRestart); return; }
@@ -1671,7 +1675,12 @@
       <div class="config-card-grid">
         <div class="config-area-card"><h3>GardenPi System</h3>${gardenSystem}</div>
         <div class="config-area-card"><h3>Web UI</h3>${webui}</div>
-        <div class="config-area-card"><h3>API</h3>${softwareApi}</div>
+        <div class="config-area-card"><h3>API</h3>${softwareApi}
+          <p class="hint config-readme-link">
+            Full documentation — including the <code>weather.csv</code> column
+            layout — lives in <a href="/README.md" target="_blank" rel="noopener">README.md</a>.
+          </p>
+        </div>
       </div>
       <div class="config-area-card config-users-card">
         <h3>Users</h3>
@@ -1688,10 +1697,20 @@
         <div class="config-node"><div class="config-node-title">Irrigation</div>${softwareIrrigation}</div>
         <div class="config-node"><div class="config-node-title">Weather</div>${softwareWeather}</div>
         <div class="config-node"><div class="config-node-title">WeeWx</div>${softwareWeewx}</div>
+      </div>
+      <div class="config-area-card config-api-reference-card">
+        <h3>API Reference</h3>
+        ${renderApiReferenceSection()}
       </div>`;
   }
 
-  // ---- API reference (Advanced > API) - static swagger-style
+  // Whether the API Reference pane's endpoint list is expanded. Kept here
+  // because renderCommonSettings() rebuilds the pane (e.g. after adding a
+  // user or an array row), which would otherwise snap it shut each time.
+  let apiReferenceOpen = false;
+
+  // ---- API reference (Configuration > API Reference pane, between
+  // Software and Advanced) - static swagger-style
   // documentation of every endpoint api.py exposes, with copy-pasteable
   // curl examples built from the currently configured API URL/token. This
   // reads configWorkingCopy purely for those two values; nothing here is
@@ -1795,12 +1814,17 @@
     ];
 
     return `<p class="hint">
-      Every endpoint below except <code>/api/health</code> requires
-      <code>Authorization: Bearer &lt;token&gt;</code>, where the token is
-      <code>handlers.api.token</code> above. If that field is left empty,
+      Every endpoint except <code>/api/health</code> requires
+      <code>Authorization: Bearer &lt;token&gt;</code>, where the token is the
+      <strong>API Access Token</strong> in the API pane at the top of this page
+      (<code>handlers.api.token</code>). If that field is left empty,
       the API runs open-access (no token required) - not recommended
       outside local development.
-    </p>${endpoints.map(renderApiEndpointCard).join('')}`;
+    </p>
+    <details class="api-reference-list" ${apiReferenceOpen ? 'open' : ''}>
+      <summary>Endpoints (${endpoints.length})</summary>
+      ${endpoints.map(renderApiEndpointCard).join('')}
+    </details>`;
   }
 
   function renderAdvancedSettings() {
@@ -1881,15 +1905,7 @@
           <div class="config-node-title">Temperature Sensors</div>
           ${tempSensors}
         </div>
-      </details>
-      <details class="config-section">
-        <summary>API</summary>
-        ${renderApiReferenceSection()}
-      </details>
-      <p class="hint config-readme-link">
-        Full documentation — including the <code>weather.csv</code> column
-        layout — lives in <a href="/README.md" target="_blank" rel="noopener">README.md</a>.
-      </p>`;
+      </details>`;
   }
 
   // Re-renders both panels from the current configWorkingCopy and re-wires
