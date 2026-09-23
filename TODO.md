@@ -6,9 +6,13 @@ As of 2026/09/23
 
 (none open)
 
-## Additional functionality
+## Additional functionality and enhancements
 
-- consider a per-service "View log" button on Configuration > Services
+- Remove the config keyword for API Access Token under webui. Just have
+  the webui use the handlers.api.token versus a duplicate webui.api_token
+  Then remove the API Access Token field from Configuration > Web UI
+
+- Consider a per-service "View log" button on Configuration > Services
   (last N lines of `journalctl -u <service>`; the webui user would need to
   be in the `systemd-journal` group, no sudo needed)
 
