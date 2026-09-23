@@ -581,6 +581,20 @@ curl -k -H "Authorization: Bearer <token>" "https://<host>:5000/api/leds/status"
 
 Unit files `scripts/gardenpi-*.service` are used by add-services.sh to setup each service
 
+### Config and code versions
+
+`garden.json` carries two version numbers in its `config` stanza, both shown
+read-only in Configuration > GardenPi System:
+
+- `config_version`: the revision of the configuration itself. The web UI bumps
+  its patch number (3.0.6 → 3.0.7) and sets `last_changed` on every save that
+  changes something. It is also what the header badge shows. Older files name
+  it `version`; the first save renames it automatically.
+- `code_version`: the version of the installed code base. The web UI never
+  changes it. Update it by hand when you install new code. A save from a
+  browser tab that was opened before your edit will not undo it: the web UI
+  always keeps the value already in the file.
+
 ### Uptime
 
 The header shows how long the Pi has been up, left of the API badge. It
@@ -653,7 +667,7 @@ Hardware" grouping used across GardenPi's configuration surfaces.
 
 | Group | Fields |
 |---|---|
-| **GardenPi System** (`config`) | Version *(read-only)*, Last Changed *(read-only)*, Global Log Level (dropdown), TLS Certificate File, TLS Key File, plus a **Users** block (add/remove accounts, change any account's password — see below; this is the one part of the GardenPi System card that isn't backed by `garden.json`) |
+| **GardenPi System** (`config`) | Config Version *(read-only)*, Code Version *(read-only)*, Last Changed *(read-only)*, Global Log Level (dropdown), TLS Certificate File, TLS Key File, plus a **Users** block (add/remove accounts, change any account's password — see below; this is the one part of the GardenPi System card that isn't backed by `garden.json`) |
 | **Web UI** (`webui`) | Listener Port, Log Level (dropdown), API URL, API Access Token, Session Secret, Session Timeout (dropdown, `webui.settings.session_timeout_minutes`), Dashboard Refresh in seconds (`webui.settings.poll_interval_seconds`) |
 | **Software → API** (`handlers.api`) | Listener Port, Log Level (dropdown), Auth Token |
 | **Software → ADC** (`handlers.adc`) | Listener Socket, Log Level (dropdown) |

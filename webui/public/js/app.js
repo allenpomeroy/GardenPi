@@ -1,4 +1,4 @@
-// GardenPi Control v2.1.0 — public/js/app.js
+// GardenPi Control v2.2.0 — public/js/app.js
 (() => {
   'use strict';
 
@@ -101,10 +101,16 @@
   async function loadVersionBadge() {
     const result = await api('/api/version');
     const badge = document.getElementById('app-version-badge');
-    // Shows garden.json's config.version (the shared GardenPi config/system
-    // version), not this webui package's own version, so the badge tracks
-    // whatever config revision the Pi is actually running.
-    if (badge && result.ok) badge.textContent = result.configVersion ? `v${result.configVersion}` : '';
+    // Shows garden.json's config.config_version (the shared GardenPi config
+    // revision the Pi is actually running), not this webui package's own
+    // version. Hover for the code version too.
+    if (badge && result.ok) {
+      badge.textContent = result.configVersion ? `v${result.configVersion}` : '';
+      badge.title = [
+        result.configVersion ? `Config version ${result.configVersion}` : '',
+        result.codeVersion ? `Code version ${result.codeVersion}` : ''
+      ].filter(Boolean).join('\n');
+    }
   }
 
   async function boot() {
@@ -1602,7 +1608,10 @@
 
     // ---- GardenPi System ----
     const gardenSystem = [
-      mappedField(['config', 'version'], 'Version', { readOnly: true }),
+      mappedField(['config', 'config_version'], 'Config Version', { readOnly: true }),
+      // Always shown, even when absent: code_version is set by hand (not
+      // by this page), so an empty value is worth seeing.
+      renderReadOnlyField('Code Version', getDeepConfig(configWorkingCopy, ['config', 'code_version']) ?? '—'),
       mappedField(['config', 'last_changed'], 'Last Changed', { readOnly: true }),
       `<div class="config-field"><label>Global Log Level</label>${renderLogLevelSelect(['config', 'global_log_level'], getDeepConfig(configWorkingCopy, ['config', 'global_log_level']))}</div>`,
       mappedField(['config', 'tls_cert_file'], 'TLS Certificate File'),
@@ -2121,9 +2130,9 @@
       showToast(result.message, 'info');
       return;
     }
-    showToast(`garden.json saved (version ${result.version}).`, 'success');
+    showToast(`garden.json saved (config version ${result.config_version}).`, 'success');
     await loadConfigTab(); // reload fresh from disk so the form reflects exactly what's now stored
-    await loadVersionBadge(); // header badge shows config.version, which the save just bumped
+    await loadVersionBadge(); // header badge shows config.config_version, which the save just bumped
     // Set the success message AFTER the reload, since loadConfigTab() re-renders
     // the tab but does not touch config-save-status itself.
     statusEl.style.color = '#2f6d4f';

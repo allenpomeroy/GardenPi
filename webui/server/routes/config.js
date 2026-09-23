@@ -1,5 +1,17 @@
-// GardenPi Control v2.1.0 — server/routes/config.js
+// GardenPi Control v2.2.0 — server/routes/config.js
 //
+// v2.2.0 2026/09/23
+// - config.version is renamed config.config_version (same auto-bump
+//   behavior), and config.code_version is added: a version for the code
+//   base, set by hand (e.g. by patching the installed garden.json), never
+//   by this app.
+// - migration: a file that still has config.version is shown by GET as if
+//   it were config_version, and the next save writes it back renamed, in
+//   the same position in the file. No manual edit needed.
+// - config.code_version is always taken from the file ON DISK when saving,
+//   never from the browser. The Configuration page only displays it, so a
+//   browser tab opened before a hand edit would otherwise send the old
+//   value back and silently undo that edit.
 // v2.1.0 2026/09/23
 // - fixed: config.last_changed and config.version were never updated on
 //   save. Every save that actually changes something now stamps
@@ -29,7 +41,7 @@ const path = require('path');
 const logger = require('../logger');
 const { CONFIG_PATH } = require('../config');
 
-// ---- config.version / config.last_changed stamping ----
+// ---- config.config_version / config.last_changed stamping ----
 
 // ISO 8601 in the Pi's local time with its UTC offset, e.g.
 // 2026-09-23T14:05:09-05:00 -- matches the format already used in
@@ -52,12 +64,33 @@ function bumpPatchVersion(version) {
   return `${m[1]}.${m[2]}.${Number(m[3]) + 1}${m[4]}`;
 }
 
-// Deep copy with the two auto-managed fields removed, so "did anything
-// change?" ignores them (the browser may send back stale copies of both).
+// Renames a legacy config.version key to config_version IN PLACE (same
+// position among the config keys, so the file doesn't get reshuffled).
+// Returns the object passed in. If both keys exist, config_version wins and
+// the legacy key is dropped.
+function migrateVersionKey(cfg) {
+  const c = cfg && cfg.config;
+  if (!c || typeof c !== 'object' || Array.isArray(c) || !('version' in c)) return cfg;
+  const rebuilt = {};
+  for (const [k, v] of Object.entries(c)) {
+    if (k === 'version') {
+      if (!('config_version' in c)) rebuilt.config_version = v;
+    } else {
+      rebuilt[k] = v;
+    }
+  }
+  cfg.config = rebuilt;
+  return cfg;
+}
+
+// Deep copy with the fields this route manages itself removed, so "did
+// anything change?" ignores them: config_version/last_changed are stamped
+// here, and code_version is always taken from disk (see header).
 function withoutStampFields(cfg) {
-  const copy = JSON.parse(JSON.stringify(cfg || {}));
+  const copy = migrateVersionKey(JSON.parse(JSON.stringify(cfg || {})));
   if (copy.config && typeof copy.config === 'object') {
-    delete copy.config.version;
+    delete copy.config.config_version;
+    delete copy.config.code_version;
     delete copy.config.last_changed;
   }
   return copy;
@@ -70,7 +103,7 @@ function withoutStampFields(cfg) {
 router.get('/current', (req, res) => {
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
-    const parsed = JSON.parse(raw);
+    const parsed = migrateVersionKey(JSON.parse(raw));
     res.json({ ok: true, config: parsed, path: CONFIG_PATH });
   } catch (err) {
     logger.error('Failed to read garden.json for the Configuration tab', { path: CONFIG_PATH, error: err.message });
@@ -102,17 +135,28 @@ router.put('/current', (req, res) => {
     // Read what's on disk now: it's both the change-detection baseline
     // and the source of the version number being bumped.
     let onDisk = null;
+    let rawDisk = null; // as parsed, before migrateVersionKey()
     if (fs.existsSync(CONFIG_PATH)) {
-      try { onDisk = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
-      catch { onDisk = null; } // unreadable/corrupt -- treat as changed and overwrite
+      try {
+        rawDisk = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+        onDisk = migrateVersionKey(JSON.parse(JSON.stringify(rawDisk)));
+      } catch { onDisk = null; rawDisk = null; } // unreadable/corrupt -- treat as changed and overwrite
     }
 
-    if (onDisk && JSON.stringify(withoutStampFields(onDisk)) === JSON.stringify(withoutStampFields(newConfig))) {
+    migrateVersionKey(newConfig);
+
+    // A file on disk that still uses the legacy "version" key counts as a
+    // change, so the first save after upgrading writes the rename.
+    const diskNeedsMigration = !!(rawDisk && rawDisk.config && 'version' in rawDisk.config);
+
+    if (onDisk && !diskNeedsMigration &&
+        JSON.stringify(withoutStampFields(onDisk)) === JSON.stringify(withoutStampFields(newConfig))) {
       return res.json({
         ok: true,
         unchanged: true,
         message: 'No changes to save.',
-        version: onDisk.config?.version ?? null,
+        config_version: onDisk.config?.config_version ?? null,
+        code_version: onDisk.config?.code_version ?? null,
         last_changed: onDisk.config?.last_changed ?? null
       });
     }
@@ -120,13 +164,21 @@ router.put('/current', (req, res) => {
     if (!newConfig.config || typeof newConfig.config !== 'object' || Array.isArray(newConfig.config)) {
       newConfig.config = {};
     }
-    const previousVersion = onDisk?.config?.version ?? newConfig.config.version;
+
+    // code_version: disk wins. Absent on disk -> absent in the saved file.
+    if (onDisk && onDisk.config && 'code_version' in onDisk.config) {
+      newConfig.config.code_version = onDisk.config.code_version;
+    } else if (onDisk) {
+      delete newConfig.config.code_version;
+    }
+
+    const previousVersion = onDisk?.config?.config_version ?? newConfig.config.config_version;
     const nextVersion = bumpPatchVersion(previousVersion);
     if (nextVersion) {
-      newConfig.config.version = nextVersion;
+      newConfig.config.config_version = nextVersion;
     } else {
-      if (previousVersion !== undefined) newConfig.config.version = previousVersion;
-      logger.warn('config.version is not MAJOR.MINOR.PATCH; left unchanged on save', { version: previousVersion });
+      if (previousVersion !== undefined) newConfig.config.config_version = previousVersion;
+      logger.warn('config.config_version is not MAJOR.MINOR.PATCH; left unchanged on save', { config_version: previousVersion });
     }
     newConfig.config.last_changed = localIsoWithOffset();
 
@@ -148,15 +200,18 @@ router.put('/current', (req, res) => {
       path: CONFIG_PATH,
       backup: fs.existsSync(backupPath) ? backupPath : null,
       topLevelKeys: Object.keys(newConfig),
-      version: newConfig.config.version,
-      lastChanged: newConfig.config.last_changed
+      configVersion: newConfig.config.config_version,
+      codeVersion: newConfig.config.code_version,
+      lastChanged: newConfig.config.last_changed,
+      migratedVersionKey: diskNeedsMigration
     });
 
     res.json({
       ok: true,
-      message: `Saved as version ${newConfig.config.version}. Restart the affected service(s) -- including this web UI -- for the changes to take effect.`,
+      message: `Saved as config version ${newConfig.config.config_version}. Restart the affected service(s) -- including this web UI -- for the changes to take effect.`,
       backup: fs.existsSync(backupPath) ? backupPath : null,
-      version: newConfig.config.version,
+      config_version: newConfig.config.config_version,
+      code_version: newConfig.config.code_version ?? null,
       last_changed: newConfig.config.last_changed
     });
   } catch (err) {
@@ -168,4 +223,4 @@ router.put('/current', (req, res) => {
 
 module.exports = router;
 // Exported for tests.
-module.exports._internal = { localIsoWithOffset, bumpPatchVersion, withoutStampFields };
+module.exports._internal = { localIsoWithOffset, bumpPatchVersion, withoutStampFields, migrateVersionKey };

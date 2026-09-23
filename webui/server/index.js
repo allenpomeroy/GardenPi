@@ -1,4 +1,4 @@
-// GardenPi Control v2.1.0 — server/index.js
+// GardenPi Control v2.2.0 — server/index.js
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
@@ -53,17 +53,21 @@ app.use((req, res, next) => {
 // Public (no auth) -- lets the login/setup screens and the app header badge
 // show the running version without needing a session yet. `version` is this
 // webui package's own version (package.json); `configVersion` is
-// garden.json's config.version (the shared GardenPi config/system version).
+// garden.json's config.config_version (legacy: config.version), bumped on
+// every Configuration-page save; `codeVersion` is config.code_version, set
+// by hand as the code base changes.
 //
-// configVersion is read fresh from disk on every call (not the startup
-// cache) so the header badge reflects a save from the Configuration page
-// straight away. Falls back to the startup value if the file can't be read.
+// Both garden.json values are read fresh from disk on every call (not the
+// startup cache), so a save -- or a hand edit of code_version -- shows up
+// straight away. Falls back to the startup values if the file can't be read.
 app.get('/api/version', (req, res) => {
-  let configVersion = config.configVersion;
+  let { configVersion, codeVersion } = config;
   try {
-    configVersion = JSON.parse(fs.readFileSync(config._meta.configPath, 'utf8'))?.config?.version || configVersion;
-  } catch { /* keep the cached value */ }
-  res.json({ ok: true, version: APP_VERSION, configVersion });
+    const c = JSON.parse(fs.readFileSync(config._meta.configPath, 'utf8'))?.config || {};
+    configVersion = c.config_version || c.version || configVersion;
+    codeVersion = c.code_version || codeVersion;
+  } catch { /* keep the cached values */ }
+  res.json({ ok: true, version: APP_VERSION, configVersion, codeVersion });
 });
 
 // Public (no auth) -- serves the project README.md, linked from the bottom

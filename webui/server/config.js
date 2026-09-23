@@ -240,11 +240,13 @@ function load() {
 
     _meta: { configPath: CONFIG_PATH, loadedFromFile: loadedFrom !== null },
 
-    // garden.json's own `config.version` -- the version of the shared
-    // GardenPi config/system as a whole, distinct from this webui
-    // package's own version (server/version.js). Surfaced separately so
-    // the UI can show whichever one it prefers (see /api/version).
-    configVersion: raw.config?.version || null
+    // garden.json's `config.config_version` (auto-bumped on every
+    // Configuration-page save; legacy files call it `config.version`) and
+    // `config.code_version` (set by hand as the code base changes). Both
+    // are distinct from this webui package's own version (server/version.js).
+    // See /api/version.
+    configVersion: raw.config?.config_version || raw.config?.version || null,
+    codeVersion: raw.config?.code_version || null
   };
 
   return cached;
