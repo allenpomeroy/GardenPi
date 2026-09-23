@@ -1643,7 +1643,7 @@
     const softwareApi = [
       mappedField(['handlers', 'api', 'listen_port'], 'Listener Port'),
       `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'api', 'log_level'], apiLogLevel)}</div>`,
-      mappedField(['handlers', 'api', 'token'], 'Auth Token')
+      mappedField(['handlers', 'api', 'token'], 'API Access Token')
     ].join('');
     const softwareAdc = [
       mappedField(['handlers', 'adc', 'socket'], 'Listener Socket'),
