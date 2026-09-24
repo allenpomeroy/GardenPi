@@ -705,7 +705,7 @@ a dedicated `/api/users` endpoint (`GET /`, `POST /`, `POST /:id/password`,
   immediately invalidates that account's other active sessions (other
   signed-in browsers/tabs), not just the one that clicked Remove.
 
-### Advanced (collapsed by default, marked DANGER)
+### Advanced (collapsed by default, with a warning banner)
 
 | Group | Fields |
 |---|---|
@@ -809,15 +809,15 @@ Notes:
 - **Type-preserving**, same as before: a numeric-looking string stays a
   string, a float stays a float, on save.
 
-### DANGER badge
+### Advanced warning banner
 
-The **DANGER** badge lives on the Advanced section's toggle line itself
-(`<summary><strong class="config-danger">DANGER</strong> — Show all
-configuration items (advanced)</summary>`) — visible even while collapsed,
-so it's seen *before* expanding, not after. The Common settings panel above
-it carries a softer, factual reminder (shared file, restart required) without
-the word "danger," since those fields are the ones considered safe enough to
-change routinely.
+The Advanced section is collapsed by default, with a plain **Advanced**
+toggle. Expanding it shows a **Warning** banner first: everything inside
+includes items rarely changed (hardware pin numbers, socket paths, hardware
+versions) that are more likely to break a running handler if misconfigured.
+The panes above Advanced carry a softer, factual reminder (the file is shared
+with the other services, and changes need a service restart), since those
+fields are the ones considered safe to change routinely.
 
 ### Safety on save
 

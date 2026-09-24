@@ -70,12 +70,23 @@ app.get('/api/version', (req, res) => {
   res.json({ ok: true, version: APP_VERSION, configVersion, codeVersion });
 });
 
-// Public (no auth) -- serves the project README.md, linked from the bottom
-// of the Configuration page's Advanced section. README.md lives at the repo
-// root (one level above public/), which express.static (below) never
-// exposes, so it needs its own explicit route.
+// Public (no auth) -- serves the project's top-level README.md, linked from
+// the bottom of the Configuration page's API pane. It lives at the repo root
+// (/opt/gardenpi/README.md on an install), two levels above this file
+// (webui/server/), outside the public/ folder express.static exposes, so it
+// needs its own explicit route.
+//
+// This used to resolve one level too shallow (webui/README.md), which
+// doesn't exist in the repo: the link returned a 500 on a fresh install,
+// and only worked where a separate copy had been placed in webui/, which
+// then went stale as the real README changed.
+const README_PATH = path.resolve(__dirname, '..', '..', 'README.md');
 app.get('/README.md', (req, res) => {
-  res.type('text/markdown').sendFile(path.join(__dirname, '..', 'README.md'));
+  if (!fs.existsSync(README_PATH)) {
+    logger.warn('README.md not found', { path: README_PATH });
+    return res.status(404).type('text/plain').send(`README.md not found at ${README_PATH}`);
+  }
+  res.type('text/markdown').sendFile(README_PATH);
 });
 
 app.use('/api/auth', authRoutes);

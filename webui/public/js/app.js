@@ -2161,8 +2161,6 @@
     configWorkingCopy = JSON.parse(JSON.stringify(result.config)); // working copy; edits don't touch the loaded original
     if (usersResult.ok) usersCache = usersResult.users;
     document.getElementById('config-file-path').textContent = result.path;
-    const filePath2 = document.getElementById('config-file-path-2');
-    if (filePath2) filePath2.textContent = result.path;
     document.getElementById('config-confirm-path').textContent = result.path;
     refreshConfigEditor();
     loadServices(); // independent of garden.json; fills #config-services-node when it arrives
