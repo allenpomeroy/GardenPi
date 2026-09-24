@@ -1662,8 +1662,9 @@
         ${renderIdMapTable(['handlers', 'adc', 'channel_map'])}
       </details>`
     ].join('');
+    // Software > LEDs: Log Level only. The listener socket path and the
+    // (read-only) LED labels table live in Advanced > Software > LEDs.
     const softwareLeds = [
-      mappedField(['handlers', 'leds', 'socket'], 'Listener Socket'),
       `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'leds', 'log_level'], ledsLogLevel)}</div>`
     ].join('');
     // Software > Irrigation: Log Level, the relay labels table (collapsed
@@ -1678,9 +1679,23 @@
       mappedField(['handlers', 'irrigation', 'max_valve_run_time'], 'Max Valve Run Time'),
       mappedField(['handlers', 'irrigation', 'allow_concurrent_valves'], 'Allow Concurrent Valves')
     ].join('');
+    // Software > Weather: Log Level, then the Input Labels and Sensor Labels
+    // tables (both collapsed by default). Input Labels owns the friendly
+    // name of every "source: weather" sensor, so it comes first. The
+    // listener socket path lives in Advanced > Software > Weather, read-only.
     const softwareWeather = [
-      mappedField(['handlers', 'weather', 'socket'], 'Listener Socket'),
-      `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'weather', 'log_level'], weatherLogLevel)}</div>`
+      `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'weather', 'log_level'], weatherLogLevel)}</div>`,
+      `<details class="config-subsection" ${rememberedOpen('software-weather-input-labels')}>
+        <summary>Input Labels</summary>
+        ${renderIdMapTable(['handlers', 'weather', 'input_map'])}
+      </details>`,
+      `<details class="config-subsection" ${rememberedOpen('software-weather-sensor-labels')}>
+        <summary>Sensor Labels</summary>
+        ${renderSensorMapTable(['handlers', 'weather', 'sensor_map'])}
+        <p class="hint">Friendly Name is read-only here. It is edited on the table that owns that
+          hardware line: ADC &gt; Channel Labels for "adc"-sourced sensors, and Weather &gt; Input
+          Labels (above) for "weather"-sourced sensors.</p>
+      </details>`
     ].join('');
     const softwareWeewx = [
       mappedField(['weewx', 'main_url'], 'Main URL')
@@ -1865,16 +1880,18 @@
     // listener socket moved here, read-only -- it has to match what the
     // ADC handler and the API are built to use, so it isn't edited here.
     const adcAdvanced = mappedField(['handlers', 'adc', 'socket'], 'Listener Socket', { readOnly: true });
-    const ledLabels = renderLedMapTable(['handlers', 'leds', 'led_map']);
+    // LEDs: listener socket (read-only, like the other handlers), then the
+    // LED labels table -- which stays here, since every column of it is
+    // read-only anyway (LED hardware_id and labels can't be edited).
+    const ledsAdvanced = mappedField(['handlers', 'leds', 'socket'], 'Listener Socket', { readOnly: true }) +
+      renderLedMapTable(['handlers', 'leds', 'led_map']);
     // Irrigation: relay labels moved to the Software pane (Software >
     // Irrigation); the listener socket moved here, read-only, like ADC.
     const irrigationAdvanced = mappedField(['handlers', 'irrigation', 'socket'], 'Listener Socket', { readOnly: true });
-    // input_map is the owning table for every "source: weather" sensor's
-    // friendly name (ground_temp1/2, wind_speed, hz, rain, int/ext temp &
-    // humidity) - shown here, right alongside Sensor Labels, since that's
-    // the only place those names are actually editable.
-    const weatherInputLabels = renderIdMapTable(['handlers', 'weather', 'input_map']);
-    const weatherLabels = renderSensorMapTable(['handlers', 'weather', 'sensor_map']);
+    // Weather: input/sensor labels moved to the Software pane (Software >
+    // Weather); the listener socket moved here, read-only, like ADC and
+    // Irrigation.
+    const weatherAdvanced = mappedField(['handlers', 'weather', 'socket'], 'Listener Socket', { readOnly: true });
 
     // ---- Hardware: pin_map tables, plus HW version / I2C address fields.
     // hardware_id is always read-only; only the pin number is editable. ----
@@ -1903,10 +1920,9 @@
       <details class="config-section" open>
         <summary>Software</summary>
         <div class="config-node"><div class="config-node-title">ADC</div>${adcAdvanced}</div>
-        <div class="config-node"><div class="config-node-title">LEDs — LED Labels</div>${ledLabels}</div>
+        <div class="config-node"><div class="config-node-title">LEDs</div>${ledsAdvanced}</div>
         <div class="config-node"><div class="config-node-title">Irrigation</div>${irrigationAdvanced}</div>
-        <div class="config-node"><div class="config-node-title">Weather — Input Labels</div>${weatherInputLabels}</div>
-        <div class="config-node"><div class="config-node-title">Weather — Sensor Labels</div>${weatherLabels}<p class="hint">Friendly Name is read-only here - it's editable only on the entry that actually owns that hardware line, in Software > ADC > Channel Labels (the Software pane) for "adc"-sourced sensors, Weather — Input Labels above for "weather"-sourced sensors).</p></div>
+        <div class="config-node"><div class="config-node-title">Weather</div>${weatherAdvanced}</div>
       </details>
       <details class="config-section">
         <summary>Hardware</summary>
