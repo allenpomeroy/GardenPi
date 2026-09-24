@@ -425,8 +425,13 @@ anything:
   built-in one ("Outside Temp", "Soil Moisture 1", …).
 - Names are shown exactly as entered.
 
+Readings are grouped under **ADC Inputs** (raw channel voltages from
+`/api/adc`) and **Weather Inputs** (the weather handler's readings from
+`/api/weather`). The same sensor can appear in both, e.g. a soil-moisture
+probe's raw ADC voltage and the weather handler's reading of it.
+
 **Which readings are shown is configurable** — click **Configure** on the
-Sensors widget to check/uncheck individual readings. New sensors are visible
+Sensors widget to check/uncheck individual readings, grouped the same way. New sensors are visible
 by default the first time they're seen; the choice is remembered per-browser
 (`localStorage`), independent of which top-level dashboard widgets are shown.
 Choices are keyed on the sensor's hardware ID (ADC) or field name (weather),

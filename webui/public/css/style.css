@@ -203,6 +203,15 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
   display: flex; flex-wrap: wrap; gap: 1rem;
 }
 .customize-panel label { font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
+/* Dashboard > Sensors > Configure: ADC / Weather groups, each with a small header */
+.customize-panel .sensor-config-group { flex: 1 1 100%; }
+.sensor-config-group + .sensor-config-group { border-top: 1px solid var(--border); padding-top: 0.75rem; }
+.sensor-config-group-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.45rem; }
+.sensor-config-group-items { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; }
+/* Dashboard > Sensors readings, grouped the same way (same small header style) */
+.sensor-group + .sensor-group { margin-top: 0.8rem; }
+.sensor-group-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); padding-bottom: 0.2rem; border-bottom: 1px solid var(--border); }
+.sensor-group .valve-note { margin-top: 0.3rem; }
 
 /* ---------- Recent Activity feed panel ---------- */
 .activity-panel { grid-column: span 2; margin-top: 0; }

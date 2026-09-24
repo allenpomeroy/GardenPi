@@ -337,20 +337,52 @@
     return items;
   }
 
+  // Sensor groups, in display order, used by both the readings list and
+  // the Configure panel. Keyed on the row key's prefix (see
+  // collectSensorItems): ADC = raw channel voltages from /api/adc,
+  // Weather = the weather handler's readings from /api/weather.
+  const SENSOR_GROUPS = [
+    { title: 'ADC Inputs', prefix: 'adc:' },
+    { title: 'Weather Inputs', prefix: 'weather:' }
+  ];
+
   function renderSensorsWidget(sensors, labels) {
     const items = collectSensorItems(sensors, labels);
     items.forEach(it => knownSensorItems.set(it.key, it.label));
 
+    // Readings, grouped under the same two headers as the Configure panel
+    // (SENSOR_GROUPS). The "could not be read" note belongs to the ADC
+    // group (it comes from /api/adc), so it's shown there -- or on its own
+    // if every ADC reading is hidden or missing.
     const visible = items.filter(it => sensorPrefs[it.key] !== false);
-    const rows = visible.map(it => `
-      <div class="mini-stat"><span>${escapeHtmlAttr(it.label)}</span><span class="val">${escapeHtmlAttr(it.display)}</span></div>
-    `).join('') || '<p class="hint">No sensors selected to display.</p>';
-
     const errNote = sensors?.adc?.errors ? `<p class="valve-note">Some sensor channels could not be read.</p>` : '';
+    const renderRow = it => `
+      <div class="mini-stat"><span>${escapeHtmlAttr(it.label)}</span><span class="val">${escapeHtmlAttr(it.display)}</span></div>`;
+    let errNoteShown = false;
+    const rows = SENSOR_GROUPS.map(({ title, prefix }) => {
+      const groupItems = visible.filter(it => it.key.startsWith(prefix));
+      if (!groupItems.length) return '';
+      const note = prefix === 'adc:' && errNote ? (errNoteShown = true, errNote) : '';
+      return `<div class="sensor-group">
+        <div class="sensor-group-title">${title}</div>
+        ${groupItems.map(renderRow).join('')}${note}
+      </div>`;
+    }).join('') || '<p class="hint">No sensors selected to display.</p>';
 
-    const configOptions = Array.from(knownSensorItems.entries()).map(([key, label]) => `
-      <label><input type="checkbox" data-sensor-toggle="${escapeHtmlAttr(key)}" ${sensorPrefs[key] !== false ? 'checked' : ''}/> ${escapeHtmlAttr(label)}</label>
-    `).join('') || '<span class="hint">No sensors detected yet.</span>';
+    // Configure panel: checkboxes grouped by source, each group under a
+    // small header -- ADC inputs (raw channel voltages, keys "adc:...")
+    // first, then weather inputs (the weather handler's readings, keys
+    // "weather:..."). A group with no sensors seen yet is left out.
+    const sensorCheckbox = ([key, label]) => `
+      <label><input type="checkbox" data-sensor-toggle="${escapeHtmlAttr(key)}" ${sensorPrefs[key] !== false ? 'checked' : ''}/> ${escapeHtmlAttr(label)}</label>`;
+    const known = Array.from(knownSensorItems.entries());
+    const configOptions = SENSOR_GROUPS
+      .map(({ title, prefix }) => [title, known.filter(([key]) => key.startsWith(prefix))])
+      .filter(([, entries]) => entries.length).map(([title, entries]) => `
+      <div class="sensor-config-group">
+        <div class="sensor-config-group-title">${title}</div>
+        <div class="sensor-config-group-items">${entries.map(sensorCheckbox).join('')}</div>
+      </div>`).join('') || '<span class="hint">No sensors detected yet.</span>';
 
     return `<div class="widget">
       <div class="widget-header-row">
@@ -358,7 +390,7 @@
         <button class="btn-link-subtle" id="btn-sensor-configure" type="button">Configure</button>
       </div>
       <div id="sensor-configure-panel" class="customize-panel ${sensorConfigOpen ? '' : 'hidden'}">${configOptions}</div>
-      ${rows}${errNote}
+      ${rows}${errNoteShown ? '' : errNote}
     </div>`;
   }
 
