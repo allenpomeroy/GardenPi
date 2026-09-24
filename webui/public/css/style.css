@@ -351,6 +351,10 @@ table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0
 .config-api-reference-card { margin: 1rem 0; }
 .config-api-reference-card > .hint:first-of-type { margin-top: 0; }
 .api-reference-list > summary { cursor: pointer; font-weight: 600; color: var(--green-700); margin: 0.2rem 0 0.6rem; }
+/* Collapsible sub-section inside a pane, e.g. Software > ADC > Channel Labels */
+.config-subsection { margin: 0.5rem 0 0.3rem; }
+.config-subsection > summary { cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--green-700); padding: 0.2rem 0; }
+.config-subsection[open] > summary { margin-bottom: 0.4rem; }
 .config-area-card .config-readme-link { margin: 0.9rem 0 0; }
 .config-software-card .config-node:first-child { margin-top: 0.3rem; }
 /* Users card: same full-width treatment as Software, but its own row

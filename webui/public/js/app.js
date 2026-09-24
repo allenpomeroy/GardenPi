@@ -1580,9 +1580,12 @@
     const root = document.getElementById('config-common');
     if (!root) return;
     servicesDelegationWired = true;
-    // 'toggle' doesn't bubble, so listen in the capture phase.
-    root.addEventListener('toggle', (e) => {
-      if (e.target.classList && e.target.classList.contains('api-reference-list')) apiReferenceOpen = e.target.open;
+    // 'toggle' doesn't bubble, so listen in the capture phase. Registered on
+    // #config-editor-root so it covers the Advanced panel as well.
+    document.getElementById('config-editor-root').addEventListener('toggle', (e) => {
+      const key = e.target.dataset && e.target.dataset.rememberOpen;
+      if (!key) return;
+      if (e.target.open) openSections.add(key); else openSections.delete(key);
     }, true);
     root.addEventListener('click', (e) => {
       const restartBtn = e.target.closest('[data-service-restart]');
@@ -1649,17 +1652,29 @@
       `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'api', 'log_level'], apiLogLevel)}</div>`,
       mappedField(['handlers', 'api', 'token'], 'API Access Token')
     ].join('');
+    // Software > ADC: Log Level, then the channel labels table (collapsed
+    // by default). The listener socket path lives in Advanced > Software >
+    // ADC, read-only.
     const softwareAdc = [
-      mappedField(['handlers', 'adc', 'socket'], 'Listener Socket'),
-      `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'adc', 'log_level'], adcLogLevel)}</div>`
+      `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'adc', 'log_level'], adcLogLevel)}</div>`,
+      `<details class="config-subsection" ${rememberedOpen('software-adc-channel-labels')}>
+        <summary>Channel Labels</summary>
+        ${renderIdMapTable(['handlers', 'adc', 'channel_map'])}
+      </details>`
     ].join('');
     const softwareLeds = [
       mappedField(['handlers', 'leds', 'socket'], 'Listener Socket'),
       `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'leds', 'log_level'], ledsLogLevel)}</div>`
     ].join('');
+    // Software > Irrigation: Log Level, the relay labels table (collapsed
+    // by default), then the safety settings. The listener socket path lives
+    // in Advanced > Software > Irrigation, read-only.
     const softwareIrrigation = [
-      mappedField(['handlers', 'irrigation', 'socket'], 'Listener Socket'),
       `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'irrigation', 'log_level'], irrigationLogLevel)}</div>`,
+      `<details class="config-subsection" ${rememberedOpen('software-irrigation-relay-labels')}>
+        <summary>Relay Labels</summary>
+        ${renderIdMapTable(['handlers', 'irrigation', 'relay_map'])}
+      </details>`,
       mappedField(['handlers', 'irrigation', 'max_valve_run_time'], 'Max Valve Run Time'),
       mappedField(['handlers', 'irrigation', 'allow_concurrent_valves'], 'Allow Concurrent Valves')
     ].join('');
@@ -1704,10 +1719,15 @@
       </div>`;
   }
 
-  // Whether the API Reference pane's endpoint list is expanded. Kept here
-  // because renderCommonSettings() rebuilds the pane (e.g. after adding a
-  // user or an array row), which would otherwise snap it shut each time.
-  let apiReferenceOpen = false;
+  // Open/closed state of collapsible sections that are closed by default,
+  // keyed by each <details data-remember-open="key">. Kept here because
+  // refreshConfigEditor() rebuilds both panels from scratch (after adding a
+  // user, an array row, etc.), which would otherwise snap them shut again.
+  // rememberedOpen(key) returns the attribute text to drop into the tag.
+  const openSections = new Set();
+  function rememberedOpen(key) {
+    return `data-remember-open="${escapeHtmlAttr(key)}"${openSections.has(key) ? ' open' : ''}`;
+  }
 
   // ---- API reference (Configuration > API Reference pane, between
   // Software and Advanced) - static swagger-style
@@ -1821,7 +1841,7 @@
       the API runs open-access (no token required) - not recommended
       outside local development.
     </p>
-    <details class="api-reference-list" ${apiReferenceOpen ? 'open' : ''}>
+    <details class="api-reference-list" ${rememberedOpen('api-reference')}>
       <summary>Endpoints (${endpoints.length})</summary>
       ${endpoints.map(renderApiEndpointCard).join('')}
     </details>`;
@@ -1841,9 +1861,14 @@
     // ---- Software: HW ID / User ID / Friendly Name (or Group/Aliases,
     // or Sensor Labels) tables - hardware_id (and, for LEDs, the whole
     // led_map) are always read-only; other columns are editable here. ----
-    const adcLabels = renderIdMapTable(['handlers', 'adc', 'channel_map']);
+    // ADC: channel labels moved to the Software pane (Software > ADC); the
+    // listener socket moved here, read-only -- it has to match what the
+    // ADC handler and the API are built to use, so it isn't edited here.
+    const adcAdvanced = mappedField(['handlers', 'adc', 'socket'], 'Listener Socket', { readOnly: true });
     const ledLabels = renderLedMapTable(['handlers', 'leds', 'led_map']);
-    const irrigationLabels = renderIdMapTable(['handlers', 'irrigation', 'relay_map']);
+    // Irrigation: relay labels moved to the Software pane (Software >
+    // Irrigation); the listener socket moved here, read-only, like ADC.
+    const irrigationAdvanced = mappedField(['handlers', 'irrigation', 'socket'], 'Listener Socket', { readOnly: true });
     // input_map is the owning table for every "source: weather" sensor's
     // friendly name (ground_temp1/2, wind_speed, hz, rain, int/ext temp &
     // humidity) - shown here, right alongside Sensor Labels, since that's
@@ -1877,11 +1902,11 @@
       </details>
       <details class="config-section" open>
         <summary>Software</summary>
-        <div class="config-node"><div class="config-node-title">ADC — Channel Labels</div>${adcLabels}</div>
+        <div class="config-node"><div class="config-node-title">ADC</div>${adcAdvanced}</div>
         <div class="config-node"><div class="config-node-title">LEDs — LED Labels</div>${ledLabels}</div>
-        <div class="config-node"><div class="config-node-title">Irrigation — Relay Labels</div>${irrigationLabels}</div>
+        <div class="config-node"><div class="config-node-title">Irrigation</div>${irrigationAdvanced}</div>
         <div class="config-node"><div class="config-node-title">Weather — Input Labels</div>${weatherInputLabels}</div>
-        <div class="config-node"><div class="config-node-title">Weather — Sensor Labels</div>${weatherLabels}<p class="hint">Friendly Name is read-only here - it's editable only on the entry that actually owns that hardware line, above (ADC — Channel Labels for "adc"-sourced sensors, Weather — Input Labels for "weather"-sourced sensors).</p></div>
+        <div class="config-node"><div class="config-node-title">Weather — Sensor Labels</div>${weatherLabels}<p class="hint">Friendly Name is read-only here - it's editable only on the entry that actually owns that hardware line, in Software > ADC > Channel Labels (the Software pane) for "adc"-sourced sensors, Weather — Input Labels above for "weather"-sourced sensors).</p></div>
       </details>
       <details class="config-section">
         <summary>Hardware</summary>
@@ -1921,11 +1946,16 @@
   // Fetches the current user list from users.json (via GET /api/users),
   // updates the cache, and re-renders -- called on initial tab load and
   // after any add/remove/password-change action succeeds.
+  //
+  // Uses refreshConfigEditor() (re-render AND re-wire both panels). It used
+  // to call renderCommonSettings() + wireUsersEvents() only, which rebuilt
+  // every settings input without re-attaching its listeners -- so any edit
+  // made after adding/removing a user or changing a password was silently
+  // dropped from the save.
   async function loadUsers() {
     const result = await api('/api/users');
     if (result.ok) usersCache = result.users;
-    renderCommonSettings();
-    wireUsersEvents();
+    refreshConfigEditor();
   }
 
   function openAddUserModal() {

@@ -670,9 +670,9 @@ Hardware" grouping used across GardenPi's configuration surfaces.
 | **GardenPi System** (`config`) | Config Version *(read-only)*, Code Version *(read-only)*, Last Changed *(read-only)*, Global Log Level (dropdown), TLS Certificate File, TLS Key File, plus a **Users** block (add/remove accounts, change any account's password — see below; this is the one part of the GardenPi System card that isn't backed by `garden.json`) |
 | **Web UI** (`webui`) | Listener Port, Log Level (dropdown), API URL, API Access Token, Session Secret, Session Timeout (dropdown, `webui.settings.session_timeout_minutes`), Dashboard Refresh in seconds (`webui.settings.poll_interval_seconds`) |
 | **API** (`handlers.api`) | Listener Port, Log Level (dropdown), API Access Token, then a link to this README (`/README.md`) |
-| **Software → ADC** (`handlers.adc`) | Listener Socket, Log Level (dropdown) |
+| **Software → ADC** (`handlers.adc`) | Log Level (dropdown), then **Channel Labels** (collapsed by default): one row per `handlers.adc.channel_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable) |
 | **Software → LEDs** (`handlers.leds`) | Listener Socket, Log Level (dropdown) |
-| **Software → Irrigation** (`handlers.irrigation`) | Listener Socket, Log Level (dropdown), Max Valve Run Time (`max_valve_run_time`, seconds), Allow Concurrent Valves (toggle) |
+| **Software → Irrigation** (`handlers.irrigation`) | Log Level (dropdown), then **Relay Labels** (collapsed by default): one row per `handlers.irrigation.relay_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable); then Max Valve Run Time (`max_valve_run_time`, seconds), Allow Concurrent Valves (toggle) |
 | **Software → Weather** (`handlers.weather`) | Listener Socket, Log Level (dropdown) |
 | **Software → WeeWx** (`weewx`) | Main URL |
 
@@ -710,11 +710,11 @@ a dedicated `/api/users` endpoint (`GET /`, `POST /`, `POST /:id/password`,
 | Group | Fields |
 |---|---|
 | **Web UI** | API TLS Reject (toggle), API Timeout (ms), Use Mock API (toggle) |
-| **Software → ADC — Channel Labels** | One row per `handlers.adc.channel_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable) |
+| **Software → ADC** | Listener Socket *(read-only, `handlers.adc.socket`)*. The ADC channel labels are in the Software pane (Software → ADC → Channel Labels). |
 | **Software → LEDs — LED Labels** | One row per `handlers.leds.led_map` entry: **HW ID**, **Group**, **Aliases** — all **read-only** (LED hardware_id and labels can never be customer-edited) |
-| **Software → Irrigation — Relay Labels** | One row per `handlers.irrigation.relay_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable) |
+| **Software → Irrigation** | Listener Socket *(read-only, `handlers.irrigation.socket`)*. The relay labels are in the Software pane (Software → Irrigation → Relay Labels). |
 | **Software → Weather — Input Labels** | One row per `handlers.weather.input_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable) - the owning table for every `source: "weather"` sensor's friendly name below |
-| **Software → Weather — Sensor Labels** | One row per `handlers.weather.sensor_map` entry: **Sensor ID** *(read-only, the map key)*, **HW or User ID** (editable `source_id`), **Friendly Name** *(read-only - derived from whichever table actually owns that hardware line: ADC — Channel Labels for `source: "adc"` sensors, Weather — Input Labels above for `source: "weather"` sensors; edit it there instead)*, **Enabled** (toggle) |
+| **Software → Weather — Sensor Labels** | One row per `handlers.weather.sensor_map` entry: **Sensor ID** *(read-only, the map key)*, **HW or User ID** (editable `source_id`), **Friendly Name** *(read-only - derived from whichever table actually owns that hardware line: Software pane → ADC → Channel Labels for `source: "adc"` sensors, Weather — Input Labels above for `source: "weather"` sensors; edit it there instead)*, **Enabled** (toggle) |
 | **Hardware → RaspberryPi** | GPIO Pin HW ID table: hardware_id *(read-only)* → pin number (editable), from `hardware.raspberrypi.pin_map` |
 | **Hardware → PiController** | HW Version *(read-only)*, I2C Address, then three pin tables filtered from the single `hardware.picontroller.pin_map` by `type`: **GPIO Pin HW ID** (`type: "gpio"`), **MCP LED Pin HW ID** (`type: "led"`), **ADC Pin HW ID** (`type: "adc"`) — hardware_id read-only, pin number editable |
 | **Hardware → PowerController** | HW Version *(read-only)*, I2C Address, **Relay HW ID** table (`hardware.powercontroller.pin_map` filtered to `type: "relay"`) — hardware_id read-only, pin number editable |
@@ -787,7 +787,7 @@ Notes:
   its own file, `handlers.weather.hz_file`, as a two-column
   (timestamp, value) CSV by `hz_csv_loop()`.
 - Friendly names for the ADC-sourced columns (Daylight, Pressure, Moisture
-  1–3, WindDir) are edited under **Software → ADC — Channel Labels**, not
+  1–3, WindDir) are edited under **Software → ADC → Channel Labels** (the Software pane), not
   under Weather — see the **Software → Weather — Sensor Labels** row above.
 
 ### Field-level behaviors
