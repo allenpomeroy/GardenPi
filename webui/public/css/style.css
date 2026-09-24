@@ -377,6 +377,8 @@ table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0
 .svc-dot.svc-missing { background: transparent; border: 1px dashed var(--gray-400); }
 .svc-actions { flex-wrap: wrap; align-items: center; margin: 0.4rem 0 0.6rem; }
 .svc-actions-spacer { flex: 1 1 1rem; }
+.svc-pending { display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--amber); color: #3b2a00; cursor: help; }
+.save-restart-btn { margin-left: 0.4rem; vertical-align: middle; }
 .svc-sudo-hint { margin-bottom: 0.6rem; font-size: 0.85rem; }
 .svc-sudo-hint code, .system-confirm-label code { background: var(--code-chip-bg); padding: 0.05rem 0.35rem; border-radius: 4px; }
 

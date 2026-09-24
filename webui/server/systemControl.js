@@ -36,6 +36,7 @@
 const fs = require('fs');
 const { execFile } = require('child_process');
 const logger = require('./logger');
+const restartImpact = require('./restartImpact');
 
 const SUDO = '/usr/bin/sudo';
 // Prefer /usr/bin (Raspberry Pi OS bookworm and any merged-/usr system);
@@ -175,6 +176,13 @@ async function listServices() {
       self: !!s.self
     };
   });
+  // "Restart needed" flags from earlier saves; entries already satisfied
+  // by a restart since then are cleared here.
+  const pending = restartImpact.resolvePending(services);
+  for (const svc of services) {
+    svc.restartNeeded = !!pending[svc.unit];
+    svc.restartReasons = pending[svc.unit]?.reasons || [];
+  }
   return { ok: true, services, restartControlsEnabled: await sudoConfigured() };
 }
 

@@ -1,4 +1,4 @@
-// GardenPi Control v2.2.0 — public/js/app.js
+// GardenPi Control v2.3.0 — public/js/app.js
 (() => {
   'use strict';
 
@@ -293,17 +293,43 @@
     ['moisture3_v', 'Soil Moisture 3', 'V']
   ];
 
-  function collectSensorItems(sensors) {
+  // Builds the Dashboard sensor rows. Names come from `labels`
+  // (status.sensorLabels, read fresh from garden.json by the server), so a
+  // rename on the Configuration page shows up on the next poll:
+  //   - ADC rows: the channel's friendly name; if the channel isn't in the
+  //     labels (e.g. mock mode), the API's own channel_name.
+  //   - Weather rows: the configured friendly name of the sensor behind
+  //     that field (e.g. moisture1_v -> s_moisture1 -> ADC "moisture1" ->
+  //     "Magnolia"); if none is configured, the built-in name in
+  //     WEATHER_FIELD_DEFS.
+  // Names are shown exactly as configured (no re-capitalizing).
+  //
+  // Row keys (used for the Configure show/hide choices) are the immutable
+  // ids -- adc:hw:<hardware_id> and weather:<field> -- so hiding a sensor
+  // survives renaming it. Choices saved under the old name-based ADC key
+  // (adc:<name>) are carried over once, the first time the row is seen.
+  function collectSensorItems(sensors, labels) {
     const items = [];
     if (!sensors) return items;
-    Object.values(sensors.adc?.channels || {}).forEach(c => {
-      const key = `adc:${c.channel_name || 'unknown'}`;
-      items.push({ key, label: friendlyChannelName(c.channel_name), display: `${fmt3(c.value)} V` });
+    const adcLabels = labels?.adc || {};
+    const weatherLabels = labels?.weather || {};
+    Object.entries(sensors.adc?.channels || {}).forEach(([channelKey, c]) => {
+      const lab = adcLabels[channelKey];
+      const key = lab ? `adc:hw:${lab.hardwareId}` : `adc:${channelKey}`;
+      const legacyKey = `adc:${c.channel_name || 'unknown'}`;
+      if (sensorPrefs[key] === undefined && sensorPrefs[legacyKey] !== undefined) {
+        sensorPrefs[key] = sensorPrefs[legacyKey];
+        delete sensorPrefs[legacyKey];
+        saveSensorPrefs(sensorPrefs);
+      }
+      const label = lab?.name || c.channel_name || channelKey || 'Sensor';
+      items.push({ key, label, display: `${fmt3(c.value)} V` });
     });
     const w = sensors.weather;
     if (w) {
-      WEATHER_FIELD_DEFS.forEach(([field, label, unit]) => {
+      WEATHER_FIELD_DEFS.forEach(([field, fallbackLabel, unit]) => {
         if (w[field] !== undefined && w[field] !== null) {
+          const label = weatherLabels[field]?.name || fallbackLabel;
           items.push({ key: `weather:${field}`, label, display: `${fmt3(w[field])} ${unit}` });
         }
       });
@@ -311,19 +337,19 @@
     return items;
   }
 
-  function renderSensorsWidget(sensors) {
-    const items = collectSensorItems(sensors);
+  function renderSensorsWidget(sensors, labels) {
+    const items = collectSensorItems(sensors, labels);
     items.forEach(it => knownSensorItems.set(it.key, it.label));
 
     const visible = items.filter(it => sensorPrefs[it.key] !== false);
     const rows = visible.map(it => `
-      <div class="mini-stat"><span>${it.label}</span><span class="val">${it.display}</span></div>
+      <div class="mini-stat"><span>${escapeHtmlAttr(it.label)}</span><span class="val">${escapeHtmlAttr(it.display)}</span></div>
     `).join('') || '<p class="hint">No sensors selected to display.</p>';
 
     const errNote = sensors?.adc?.errors ? `<p class="valve-note">Some sensor channels could not be read.</p>` : '';
 
     const configOptions = Array.from(knownSensorItems.entries()).map(([key, label]) => `
-      <label><input type="checkbox" data-sensor-toggle="${key}" ${sensorPrefs[key] !== false ? 'checked' : ''}/> ${label}</label>
+      <label><input type="checkbox" data-sensor-toggle="${escapeHtmlAttr(key)}" ${sensorPrefs[key] !== false ? 'checked' : ''}/> ${escapeHtmlAttr(label)}</label>
     `).join('') || '<span class="hint">No sensors detected yet.</span>';
 
     return `<div class="widget">
@@ -387,7 +413,7 @@
     }
 
     if (widgetPrefs.sensors) {
-      parts.push(renderSensorsWidget(status.sensors));
+      parts.push(renderSensorsWidget(status.sensors, status.sensorLabels));
     }
 
     if (widgetPrefs.schedule) {
@@ -422,11 +448,6 @@
     } else {
       activityPanel.classList.add('hidden');
     }
-  }
-
-  function friendlyChannelName(name) {
-    if (!name) return 'Sensor';
-    return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
 
   // Rounds a numeric sensor reading to at most 3 decimal places (no trailing
@@ -1320,15 +1341,19 @@
       return `<p class="hint">${escapeHtmlAttr(servicesMessage || 'Loading services…')}</p>`;
     }
     const disabledAll = servicesBusy || !servicesRestartEnabled;
+    const pendingCount = servicesCache.filter(svc => svc.restartNeeded && svc.installed).length;
     const rows = servicesCache.map(svc => {
       const state = svc.installed
         ? `${svc.activeState}${svc.subState && svc.subState !== svc.activeState ? ` (${svc.subState})` : ''}`
         : 'not installed';
       const btnDisabled = disabledAll || !svc.installed ? 'disabled' : '';
       const note = svc.self ? ' <span class="hint">(this web UI)</span>' : '';
+      const pendingTag = svc.restartNeeded
+        ? ` <span class="svc-pending" title="${escapeHtmlAttr('Changed since it started: ' + (svc.restartReasons.join(', ') || 'configuration'))}">Restart needed</span>`
+        : '';
       return `<tr>
         <td><code>${escapeHtmlAttr(svc.name)}</code>${note}<div class="hint">${escapeHtmlAttr(svc.label)}</div></td>
-        <td><span class="svc-dot ${serviceStateClass(svc)}"></span>${escapeHtmlAttr(state)}</td>
+        <td><span class="svc-dot ${serviceStateClass(svc)}"></span>${escapeHtmlAttr(state)}${pendingTag}</td>
         <td>${escapeHtmlAttr(svc.installed ? formatServiceSince(svc.since) : '—')}</td>
         <td><button type="button" class="btn-secondary btn-small" data-service-restart="${escapeHtmlAttr(svc.unit)}" ${btnDisabled}>Restart</button></td>
       </tr>`;
@@ -1348,7 +1373,8 @@
       ${servicesMessage ? `<p class="hint">${escapeHtmlAttr(servicesMessage)}</p>` : ''}
       <div class="row-actions svc-actions">
         <button type="button" class="btn-secondary btn-small" data-service-refresh ${servicesBusy ? 'disabled' : ''}>Refresh</button>
-        <button type="button" class="btn-primary btn-small" data-service-restart-all ${disabledAll ? 'disabled' : ''}>Restart all</button>
+        ${pendingCount ? `<button type="button" class="btn-primary btn-small" data-service-restart-needed ${disabledAll ? 'disabled' : ''}>Restart needed (${pendingCount})</button>` : ''}
+        <button type="button" class="${pendingCount ? 'btn-secondary' : 'btn-primary'} btn-small" data-service-restart-all ${disabledAll ? 'disabled' : ''}>Restart all</button>
         <span class="svc-actions-spacer"></span>
         <button type="button" class="btn-danger btn-small" data-system-power="reboot" ${disabledAll ? 'disabled' : ''}>Reboot system</button>
         <button type="button" class="btn-danger btn-small" data-system-power="shutdown" ${disabledAll ? 'disabled' : ''}>Shut down system</button>
@@ -1439,6 +1465,40 @@
       return;
     }
     if (result.selfRestarting) { await afterSelfRestart(result.message, 60000); return; }
+    showToast(result.message, 'success');
+    servicesMessage = '';
+    await loadServices();
+  }
+
+  // Restarts only the services flagged "Restart needed" by config saves
+  // (POST /api/system/services/restart-needed), in startup order, the web
+  // UI last. Used by the Services card button and the button in the save
+  // message.
+  async function restartNeededServices() {
+    const pending = (servicesCache || []).filter(svc => svc.restartNeeded && svc.installed);
+    const names = pending.map(svc => svc.name);
+    const warnIrrigation = pending.some(svc => svc.unit === 'gardenpi-irrigation.service' || svc.unit === 'gardenpi-init.service');
+    const question = names.length
+      ? `Restart ${names.join(', ')}?` +
+        (warnIrrigation ? ' Any valve or pump that is currently running will be turned off.' : '') +
+        (pending.some(svc => svc.self) ? ' This page will disconnect briefly while the web UI restarts.' : '')
+      : 'Restart the services affected by your saved changes?';
+    if (!confirm(question)) return;
+
+    servicesBusy = true;
+    servicesMessage = `Restarting ${names.join(', ') || 'services'}…`;
+    refreshServicesNode();
+    const result = await api('/api/system/services/restart-needed', { method: 'POST' });
+    servicesBusy = false;
+    const statusEl = document.getElementById('config-save-status');
+    if (statusEl && statusEl.querySelector('[data-save-restart-needed]')) statusEl.textContent = '';
+    if (!result.ok) {
+      servicesMessage = '';
+      showToast(result.message, 'error');
+      await loadServices();
+      return;
+    }
+    if (result.selfRestarting) { await afterSelfRestart(result.message, 90000); return; }
     showToast(result.message, 'success');
     servicesMessage = '';
     await loadServices();
@@ -1590,6 +1650,8 @@
     root.addEventListener('click', (e) => {
       const restartBtn = e.target.closest('[data-service-restart]');
       if (restartBtn && !restartBtn.disabled) { restartOneService(restartBtn.dataset.serviceRestart); return; }
+      const neededBtn = e.target.closest('[data-service-restart-needed]');
+      if (neededBtn && !neededBtn.disabled) { restartNeededServices(); return; }
       const allBtn = e.target.closest('[data-service-restart-all]');
       if (allBtn && !allBtn.disabled) { restartAllServices(); return; }
       const refreshBtn = e.target.closest('[data-service-refresh]');
@@ -2197,6 +2259,16 @@
     // the tab but does not touch config-save-status itself.
     statusEl.style.color = '#2f6d4f';
     statusEl.textContent = result.message;
+    if (result.restartNeeded && result.restartNeeded.length) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-primary btn-small save-restart-btn';
+      btn.dataset.saveRestartNeeded = '1';
+      btn.textContent = 'Restart now';
+      btn.disabled = !servicesRestartEnabled;
+      btn.addEventListener('click', restartNeededServices);
+      statusEl.append(' ', btn);
+    }
   });
 
   boot();

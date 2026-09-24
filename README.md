@@ -412,10 +412,25 @@ The Sensors widget combines two GardenAPI sources:
 All floating-point readings are rounded to at most 3 decimal places for
 display (long raw values like `2.697685740236551` display as `2.698`).
 
+**Names come from Configuration, live.** Each reading is labelled with its
+configured friendly name, read straight from `garden.json` on every refresh,
+so a rename shows up on the Dashboard within seconds, without restarting
+anything:
+
+- ADC readings use the channel's name from **Software → ADC → Channel Labels**.
+- Weather readings follow **Sensor Labels** to the sensor's owning table: ADC
+  Channel Labels for `source: "adc"` sensors (e.g. `moisture1_v` → the
+  `moisture1` channel's name), Weather **Input Labels** for `source:
+  "weather"` sensors. A reading with no configured name falls back to a
+  built-in one ("Outside Temp", "Soil Moisture 1", …).
+- Names are shown exactly as entered.
+
 **Which readings are shown is configurable** — click **Configure** on the
 Sensors widget to check/uncheck individual readings. New sensors are visible
 by default the first time they're seen; the choice is remembered per-browser
 (`localStorage`), independent of which top-level dashboard widgets are shown.
+Choices are keyed on the sensor's hardware ID (ADC) or field name (weather),
+not its name, so renaming a sensor keeps it hidden or shown as before.
 
 ## Recent Activity
 
@@ -609,6 +624,27 @@ UI runs on), not of the web UI or API service.
 status, a **Restart** button for each, **Restart all**, and **Reboot system** /
 **Shut down system**. There is intentionally no Stop button: if
 `gardenpi-webui` is stopped, it can only be started again from an ssh session.
+
+- **Restart needed**: every GardenPi service reads `garden.json` only when it
+  starts, so a saved change takes effect when the services that use it are
+  restarted. After each save the web UI works out which ones those are, says
+  so in the save message (with a **Restart now** button), and flags them
+  **Restart needed** on this card (hover for what changed). The
+  **Restart needed (n)** button restarts just those, in startup order, the
+  web UI last. A flag clears once the service has been restarted by any
+  means: this card, ssh, or a reboot. The list is kept in
+  `<data_dir>/pending-restarts.json`. Some examples:
+
+  | Change | Restart |
+  |---|---|
+  | ADC channel friendly name | `gardenpi-api` (the Dashboard updates without it) |
+  | ADC channel user ID | `gardenpi-adc`, `gardenpi-weather`, `gardenpi-api` |
+  | Relay friendly name | `gardenpi-api`, `gardenpi-webui` |
+  | Weather input friendly name | nothing (only the Dashboard uses it) |
+  | Max valve run time, concurrent valves | `gardenpi-irrigation`, `gardenpi-webui` |
+  | API access token | `gardenpi-api`, `gardenpi-webui` |
+  | Global log level | every service |
+  | WeeWx URL | nothing (read live) |
 
 - **Restart all** restarts every service except the one-shot `gardenpi-init`,
   in one systemd transaction, so they stop and start in the same order as

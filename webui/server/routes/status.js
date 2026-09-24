@@ -1,5 +1,9 @@
-// GardenPi Control v2.1.0 — server/routes/status.js
+// GardenPi Control v2.3.0 — server/routes/status.js
 //
+// v2.3.0 2026/09/24
+// - added `sensorLabels` (server/sensorLabels.js): the Dashboard's sensor
+//   names, read fresh from garden.json, so renames show up without a
+//   restart and the Weather section uses the configured friendly names.
 // v2.1.0 2026/09/23
 // - added `host.uptimeSeconds` / `host.bootTime` for the topbar uptime badge.
 //   Taken from this process's host (os.uptime(), i.e. /proc/uptime), which
@@ -11,6 +15,7 @@ const gardenApi = require('../gardenApiClient');
 const db = require('../db');
 const scheduler = require('../scheduler');
 const valvesConfig = require('../config').load().valves;
+const { getSensorLabels } = require('../sensorLabels');
 
 // One aggregated, near-real-time snapshot for the dashboard/irrigation tab to poll.
 router.get('/all', async (req, res, next) => {
@@ -40,6 +45,7 @@ router.get('/all', async (req, res, next) => {
       valves,
       leds,
       sensors,
+      sensorLabels: getSensorLabels(),
       events: db.getEvents(20),
       schedulerActive: scheduler.status().some(e => e.currentlyRunning)
     });

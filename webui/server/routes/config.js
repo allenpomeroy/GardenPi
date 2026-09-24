@@ -1,4 +1,9 @@
-// GardenPi Control v2.2.0 — server/routes/config.js
+// GardenPi Control v2.3.0 — server/routes/config.js
+//
+// v2.3.0 2026/09/24
+// - each save works out which services the change affects
+//   (server/restartImpact.js), returns them as `restartNeeded`, and records
+//   them in the persistent pending-restart list shown on the Services card.
 //
 // v2.2.0 2026/09/23
 // - config.version is renamed config.config_version (same auto-bump
@@ -40,6 +45,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../logger');
 const { CONFIG_PATH } = require('../config');
+const restartImpact = require('../restartImpact');
 
 // ---- config.config_version / config.last_changed stamping ----
 
@@ -182,6 +188,11 @@ router.put('/current', (req, res) => {
     }
     newConfig.config.last_changed = localIsoWithOffset();
 
+    // Which services need a restart to pick this change up. Compared
+    // against the migrated on-disk copy; version/timestamp fields and
+    // comments are ignored by restartImpact itself.
+    const restartNeeded = restartImpact.servicesAffected(onDisk || {}, newConfig);
+
     if (fs.existsSync(CONFIG_PATH)) {
       fs.copyFileSync(CONFIG_PATH, backupPath);
     }
@@ -206,9 +217,14 @@ router.put('/current', (req, res) => {
       migratedVersionKey: diskNeedsMigration
     });
 
+    restartImpact.recordPending(restartNeeded);
+    const units = restartNeeded.map(r => r.unit.replace(/\.service$/, ''));
     res.json({
       ok: true,
-      message: `Saved as config version ${newConfig.config.config_version}. Restart the affected service(s) -- including this web UI -- for the changes to take effect.`,
+      restartNeeded,
+      message: `Saved as config version ${newConfig.config.config_version}. ` + (units.length
+        ? `Takes effect after restarting: ${units.join(', ')}.`
+        : 'No service restart is needed.'),
       backup: fs.existsSync(backupPath) ? backupPath : null,
       config_version: newConfig.config.config_version,
       code_version: newConfig.config.code_version ?? null,

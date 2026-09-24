@@ -3,6 +3,7 @@
 // Backs the Services card on the Configuration page:
 //   GET  /api/system/services                   status of every gardenpi-* unit
 //   POST /api/system/services/restart-all       restart every long-running unit
+//   POST /api/system/services/restart-needed    restart only units flagged by config saves
 //   POST /api/system/services/:unit/restart     restart one unit
 //   POST /api/system/reboot                     reboot the Pi
 //   POST /api/system/shutdown                   power off the Pi via scripts/pijuice-safe-shutdown.py
@@ -15,6 +16,7 @@ const db = require('../db');
 const logger = require('../logger');
 const systemControl = require('../systemControl');
 const valveControl = require('../valveControl');
+const restartImpact = require('../restartImpact');
 
 function who(req) { return req.session?.username || 'unknown'; }
 
@@ -34,6 +36,53 @@ router.post('/services/restart-all', async (req, res, next) => {
       ok: true,
       selfRestarting: true,
       message: 'Restarting all GardenPi services. This page will reconnect when the web UI is back (usually 10-30 seconds).'
+    });
+  } catch (err) { next(err); }
+});
+
+// Restarts just the services flagged "restart needed" by config saves, in
+// startup order, the web UI last (after the response). If gardenpi-init is
+// among them, the four handlers are skipped: systemd restarts them along
+// with init because they Require= it.
+router.post('/services/restart-needed', async (req, res, next) => {
+  try {
+    const listing = await systemControl.listServices(); // also clears satisfied entries
+    if (!listing.ok) return res.json({ ok: false, message: listing.message });
+    let units = listing.services.filter(s => s.restartNeeded && s.installed).map(s => s.unit);
+    if (!units.length) return res.json({ ok: true, restarted: [], message: 'No services need a restart.' });
+
+    if (units.includes('gardenpi-init.service')) {
+      units = units.filter(u => !['gardenpi-leds.service', 'gardenpi-adc.service',
+        'gardenpi-irrigation.service', 'gardenpi-weather.service'].includes(u));
+    }
+    const includeSelf = units.includes(systemControl.SELF_UNIT);
+    const others = restartImpact.ORDER.filter(u => units.includes(u) && u !== systemControl.SELF_UNIT);
+
+    const restarted = [];
+    for (const unit of others) {
+      try {
+        await systemControl.restartService(unit);
+        restarted.push(unit);
+        db.addEvent({ type: 'service_restart', unit, source: who(req), message: `${unit} restarted (${who(req)})` });
+      } catch (err) {
+        return res.json({
+          ok: false,
+          restarted,
+          message: `${err.message}${restarted.length ? ` (already restarted: ${restarted.join(', ')})` : ''}`
+        });
+      }
+    }
+
+    if (includeSelf) {
+      await systemControl.scheduleSelfRestart();
+      db.addEvent({ type: 'service_restart', unit: systemControl.SELF_UNIT, source: who(req), message: `${systemControl.SELF_UNIT} restarted (${who(req)})` });
+    }
+    const names = [...restarted, ...(includeSelf ? [systemControl.SELF_UNIT] : [])].map(u => u.replace(/\.service$/, ''));
+    res.json({
+      ok: true,
+      restarted,
+      selfRestarting: includeSelf,
+      message: `Restarted ${names.join(', ')}.${includeSelf ? ' This page will reconnect in a few seconds.' : ''}`
     });
   } catch (err) { next(err); }
 });
