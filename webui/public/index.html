@@ -145,10 +145,11 @@
         <button id="btn-save-config" class="btn-primary">Save changes</button>
       </div>
       <div class="card config-warning">
-        <strong>This edits <code id="config-file-path">garden.json</code> directly</strong> — a file
-        shared with the other GardenPi services (ADC/LED/irrigation/weather handlers, the API).
-        Sections other than <strong>webui</strong> below affect those services, not just this one.
-        <strong>No service — including this web UI — re-reads this file automatically.</strong>
+        <strong>These settings are directly stored in <code id="config-file-path">garden.json</code>
+        </strong> which is the main configuration file
+        for all GardenPi services (ADC/LED/Irrigation/Weather handlers, Scheduler, API and WebUI).
+        Changes to each handler software or hardware settings will require restart of associated
+        gardenpi-* services. <strong>No service re-reads the configuration file automatically.</strong>
         Restart whichever service(s) a change affects for it to take effect. Every save writes a
         timestamped backup of the previous file alongside it first.
       </div>
