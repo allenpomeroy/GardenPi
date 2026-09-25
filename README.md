@@ -4,7 +4,7 @@ This repository contains all the hardware and software components for my garden 
 
 The overall system drives a Weather Station (feeds WeeWx software), various moisture, temperature, humidity sensors, and irrigation control system with 5 valves and 2 pumps. Three status LEDs on the external enclosure (System, Sensors, Irrigation) give an indication of operations. Web pages give Dashboard, Irrigation Control, Schedule, detailed Configuration pages.
 
-<img width="1460" height="730" alt="GardenPi Control Dashboard" src="https://github.com/user-attachments/assets/3cf7ba8b-6141-47b7-a9bf-848d779ab477" />
+<img width="1822" height="923" alt="GardenPi Dashboard" src="https://github.com/user-attachments/assets/6c66e111-64d9-464e-a853-9ddccdb941e4" />
 
 ## Hardware
 
@@ -194,22 +194,29 @@ relay-based irrigation control, LED status, ADC sensors, a weather endpoint)
 running on the Pi, with an in-memory simulation mode for development/demo
 without hardware.
 
+### UI
+
+<img width="1822" height="923" alt="GardenPi Dashboard" src="https://github.com/user-attachments/assets/6c66e111-64d9-464e-a853-9ddccdb941e4" />
+
+<img width="1822" height="923" alt="GardenPi Dashboard2" src="https://github.com/user-attachments/assets/9ec3abf6-0714-4dd2-852b-dc71bd8c1a4b" />
+
+<img width="1822" height="923" alt="GardenPi Irrigation" src="https://github.com/user-attachments/assets/9e66f91e-11c2-4aaf-b091-fd4e5eb9deeb" />
+
+<img width="1822" height="923" alt="GardenPi Irrigation2" src="https://github.com/user-attachments/assets/dce4cbc9-f9c4-4823-bc1f-c3e06a791938" />
+
+<img width="1822" height="923" alt="GardenPi Schedule" src="https://github.com/user-attachments/assets/dba96320-f41e-40cd-8b70-8a8de9574d30" />
+
+<img width="1081" height="775" alt="GardenPi Config1" src="https://github.com/user-attachments/assets/690cf6a6-450a-4176-ae73-7c7d7f0502d4" />
+
+<img width="1081" height="791" alt="GardenPi Config2" src="https://github.com/user-attachments/assets/851803c5-749c-4823-8ba6-64b1b4f3f368" />
+
+<img width="1081" height="804" alt="GardenPi Config3" src="https://github.com/user-attachments/assets/9d30d58e-8439-41d4-80ef-1c256eb6700b" />
+
+
 ### Testing
 
 To test the GardenPi web UI without the live API listener, navigate to Configuration > Advanced > Web UI > Use Mock API.
 Set the API base URL and authentication Token for API and Web UI once you're ready to point at the real controller (see [Configuration](#configuration)).
-
-### UI
-
-<img width="1832" height="890" alt="GardenPiConfiguration" src="https://github.com/user-attachments/assets/804b8681-a974-4eb5-8c03-c8fb50e7daa0" />
-
-<img width="865" height="820" alt="GardenPiConfiguration2" src="https://github.com/user-attachments/assets/0d237074-aa6c-4dda-a3b3-40e87090396d" />
-
-<img width="863" height="490" alt="GardenPiConfiguration3" src="https://github.com/user-attachments/assets/ec1914ff-2a7b-4f35-a4f2-dbdbeb75178f" />
-
-<img width="1829" height="913" alt="GardenPiSchedule" src="https://github.com/user-attachments/assets/8eb3e22e-5df6-4925-b1e2-195c06a371ed" />
-
-<img width="1832" height="723" alt="GardenPiIrrigation" src="https://github.com/user-attachments/assets/7e705d2d-5a32-40b9-a6bb-6551214cb66e" />
 
 ### Functions
 
