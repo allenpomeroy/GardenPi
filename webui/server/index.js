@@ -119,11 +119,11 @@ const CERT_PATH = config.server.tlsCertPath;
 const KEY_PATH = config.server.tlsKeyPath;
 
 if (!fs.existsSync(CERT_PATH) || !fs.existsSync(KEY_PATH)) {
-  logger.error(`TLS certificate or key not found at ${CERT_PATH} / ${KEY_PATH}. ` +
-    'Install a certificate/key at those standard paths (matching the GardenAPI\'s own ' +
-    'TLS setup), run scripts/generate-cert.sh for a self-signed development certificate ' +
-    'and set server.tlsCertPath/server.tlsKeyPath in garden.json to ./certs/server.crt ' +
-    'and ./certs/server.key, or point them at wherever your real certificate lives.');
+  logger.error(`TLS certificate or key not found at ${CERT_PATH} / ${KEY_PATH} ` +
+    '(garden.json config.tls_cert_file / config.tls_key_file). Run ' +
+    '"sudo /opt/gardenpi/scripts/setup-tls.sh" to create a temporary self-signed pair at ' +
+    'those paths, install your own certificate there, or point those two settings at ' +
+    'wherever your real certificate lives.');
   process.exit(1);
 }
 

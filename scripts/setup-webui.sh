@@ -11,6 +11,10 @@
 # Safe to re-run: installs nothing that's already present, and `npm install`
 # only fetches what's missing or changed.
 #
+# v2.1 2026/09/25
+# - service account from garden.json (config.application_user/_group, via
+#   gardenpi-env.sh) instead of a hard-coded pi
+#
 # v2.0 2026/09/24
 # - installs nodejs + npm from the OS repositories when node/npm are missing
 #   (a fresh Raspberry Pi OS / Debian trixie image has neither, so the
@@ -26,13 +30,15 @@
 set -euo pipefail
 
 WEBUI_DIR="/opt/gardenpi/webui"
-RUN_AS_USER="pi"
+. "$(dirname "$(readlink -f "$0")")/gardenpi-env.sh"
+RUN_AS_USER="$GARDENPI_USER"
 MIN_NODE_MAJOR=18
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script needs to run as root. Try: sudo $0" >&2
   exit 1
 fi
+gardenpi_require_account
 
 if [ ! -d "$WEBUI_DIR" ]; then
   echo "$WEBUI_DIR does not exist; unpack the GardenPi files into /opt/gardenpi first." >&2
@@ -57,9 +63,12 @@ if [ "$(command -v node)" != "/usr/bin/node" ]; then
 fi
 echo "==> Using Node.js $NODE_VERSION, npm $(npm --version)"
 
-chown -R "$RUN_AS_USER:$RUN_AS_USER" "$WEBUI_DIR"
+chown -R "$RUN_AS_USER:$GARDENPI_GROUP" "$WEBUI_DIR"
 
 echo "==> Installing web UI dependencies..."
 /bin/su - "$RUN_AS_USER" -c "cd '$WEBUI_DIR' && npm install --omit=dev --no-audit --no-fund"
+# npm created node_modules with the user's own primary group; match the
+# configured group like the rest of /opt/gardenpi.
+chown -R "$RUN_AS_USER:$GARDENPI_GROUP" "$WEBUI_DIR"
 
 echo "Done. Web UI dependencies installed in $WEBUI_DIR/node_modules"

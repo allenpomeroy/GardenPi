@@ -7,18 +7,21 @@
 # webui.log_dir in garden.json.
 #
 # Usage:
-#   sudo ./add-remove-logs-crontab.sh            # user "pi"
+#   sudo ./add-remove-logs-crontab.sh            # garden.json's application_user
 #   sudo ./add-remove-logs-crontab.sh --user bob
 #
 # Idempotent: an existing entry for remove-old-logs.py is replaced, never
 # duplicated.
 #
+# v1.1 2026/09/25 - installs cron if it's missing; default user is garden.json's config.application_user
+#   (via gardenpi-env.sh) instead of a hard-coded pi
 # v1.0 2026/09/23 - initial version (install-gardenpi.sh called this
 #   script, but it did not exist, so the install always ended in an error)
 
 set -euo pipefail
 
-RUN_AS_USER="pi"
+. "$(dirname "$(readlink -f "$0")")/gardenpi-env.sh"
+RUN_AS_USER="$GARDENPI_USER"   # --user overrides
 SCRIPT="/opt/gardenpi/scripts/remove-old-logs.py"
 SCHEDULE="17 3 * * *"   # 03:17 daily
 
@@ -32,6 +35,12 @@ done
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script needs to run as root. Try: sudo $0" >&2
   exit 1
+fi
+
+# Minimal Debian installs may not include cron.
+if ! command -v crontab >/dev/null 2>&1; then
+  echo "==> Installing cron..."
+  apt-get install -y cron
 fi
 
 ENTRY="$SCHEDULE /usr/bin/python3 $SCRIPT >/dev/null 2>&1"

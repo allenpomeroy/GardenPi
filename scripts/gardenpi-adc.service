@@ -6,6 +6,8 @@ Requires=gardenpi-init.service
 
 [Service]
 Type=simple
+# User/Group: add-services.sh replaces these with garden.json's
+# config.application_user / config.application_group when installing.
 User=pi
 Group=pi
 ExecStart=/opt/gardenpi/bin/adc-handler.py --hwversion 7.1

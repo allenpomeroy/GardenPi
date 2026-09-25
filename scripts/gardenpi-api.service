@@ -1,4 +1,10 @@
 [Unit]
+# v2.2
+# - listen port and TLS certificate/key are no longer hard-coded here:
+#   bin/gunicorn.conf.py (loaded automatically from WorkingDirectory) reads
+#   them from garden.json -- handlers.api.listen_port, and
+#   config.tls_cert_file / config.tls_key_file (as the web UI does).
+# - User/Group are installed from garden.json by add-services.sh.
 # v2.1
 # Sequencing: the API is a socket CLIENT of every hardware handler (adc,
 # irrigation, leds, and now weather too), so it must start after all four
@@ -10,17 +16,16 @@ Wants=gardenpi-adc.service gardenpi-irrigation.service gardenpi-leds.service gar
 
 [Service]
 Type=notify
+# User/Group: add-services.sh replaces these with garden.json's
+# config.application_user / config.application_group when installing.
 User=pi
 Group=pi
 WorkingDirectory=/opt/gardenpi/bin
 ExecStart=/opt/gardenpi/python3/bin/gunicorn \
-    --bind 0.0.0.0:5000 \
     --workers 2 \
     --timeout 60 \
     --graceful-timeout 10 \
     --preload \
-    --certfile /etc/pki/tls/certs/node.pem \
-    --keyfile /etc/pki/tls/private/node.key \
     --access-logfile - \
     --error-logfile - \
     'api:create_app()'

@@ -1,4 +1,6 @@
 [Unit]
+# v2.3
+# - added Group= (installed from config.application_group by add-services.sh).
 # v2.2
 # - note: do NOT add NoNewPrivileges=yes (or other sandboxing that implies
 #   it, e.g. RestrictSUIDSGID/ProtectSystem=strict) -- it blocks sudo, which
@@ -17,7 +19,10 @@ Wants=gardenpi-api.service
 
 [Service]
 Type=simple
+# User/Group: add-services.sh replaces these with garden.json's
+# config.application_user / config.application_group when installing.
 User=pi
+Group=pi
 # All configuration is read from the shared /opt/gardenpi/config/garden.json
 # (see garden.example.json) -- this webui reads its own "webui" stanza plus
 # ground-truth hardware/handler settings from the rest of the file. There is

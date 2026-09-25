@@ -2,9 +2,9 @@
   "config": {
     "name": "garden.json",
     "comment": "Configuration file for all GardenPi hardware and software",
-    "config_version": "3.0.7",
+    "config_version": "3.0.0",
     "comment_code_version": "Version of the GardenPi code base. Update it by hand when installed code changes.",
-    "code_version": "3.0.7",
+    "code_version": "3.0.10",
     "last_changed": "2026-08-29T09:00:00-05:00",
     "tls_cert_file": "/etc/pki/tls/certs/node.pem",
     "tls_key_file": "/etc/pki/tls/private/node.key",

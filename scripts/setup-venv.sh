@@ -10,6 +10,10 @@
 #
 # Run once during setup, and again any time requirements.txt changes.
 #
+# v2.2 2026/09/25
+# - service account from garden.json (config.application_user/_group, via
+#   gardenpi-env.sh) instead of a hard-coded pi
+#
 # v2.1 2026/09/24
 # - added swig and liblgpio-dev: pip has no prebuilt lgpio wheel for newer
 #   Pythons (e.g. 3.13 on Debian/Raspberry Pi OS trixie), so it builds
@@ -34,13 +38,15 @@ set -euo pipefail
 
 VENV_DIR="/opt/gardenpi/python3"
 REQUIREMENTS="$(dirname "$0")/requirements.txt"
-RUN_AS_USER="pi"
+. "$(dirname "$(readlink -f "$0")")/gardenpi-env.sh"
+RUN_AS_USER="$GARDENPI_USER"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script needs to run as root (it creates /opt/gardenpi and chowns it to $RUN_AS_USER)." >&2
     echo "Try: sudo $0" >&2
     exit 1
 fi
+gardenpi_require_account
 
 echo "==> Installing system packages needed for the venv and hardware libraries..."
 apt-get update
@@ -51,13 +57,16 @@ mkdir -p /opt/gardenpi
 python3 -m venv "$VENV_DIR"
 
 echo "==> Setting ownership to $RUN_AS_USER..."
-chown -R "$RUN_AS_USER:$RUN_AS_USER" /opt/gardenpi
+chown -R "$RUN_AS_USER:$GARDENPI_GROUP" /opt/gardenpi
 
 echo "==> Upgrading pip..."
 sudo -u "$RUN_AS_USER" "$VENV_DIR/bin/pip" install --upgrade pip
 
 echo "==> Installing requirements from $REQUIREMENTS ..."
 sudo -u "$RUN_AS_USER" "$VENV_DIR/bin/pip" install -r "$REQUIREMENTS"
+# pip created files with the user's own primary group; match the configured
+# group like the rest of /opt/gardenpi.
+chown -R "$RUN_AS_USER:$GARDENPI_GROUP" "$VENV_DIR"
 
 echo
 echo "Done. Virtual environment ready at $VENV_DIR"

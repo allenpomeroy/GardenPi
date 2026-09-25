@@ -18,6 +18,10 @@
 #      are both already present (so a Node.js installed some other way,
 #      e.g. from NodeSource, is left alone -- Debian's npm package would
 #      conflict with it).
+# - added setup-tls.sh (after the web UI setup, before the services are
+#   installed): if the TLS certificate/key configured in garden.json don't
+#   exist, it generates a temporary self-signed pair with gen-tmp-cert.sh,
+#   owned by config.application_user:config.application_group.
 #
 # v2.0 2026/09/23
 # - fixed: every step used a ./relative path, so the script only worked
@@ -89,6 +93,10 @@ echo
 ./setup-venv.sh
 ./setup-api.sh
 ./setup-webui.sh
+
+# TLS certificate/key from garden.json: generates a temporary self-signed
+# pair if they don't exist yet, so gardenpi-api and gardenpi-webui can start.
+./setup-tls.sh
 
 ./setup-sudoers.sh
 

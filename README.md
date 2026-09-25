@@ -111,6 +111,22 @@ It also installs `swig` and `liblgpio-dev` (from the Raspberry Pi archive):
 on newer Pythons, such as 3.13 on trixie, pip has no prebuilt `lgpio`
 package and compiles it from source.
 
+**Service account and ports come from `garden.json`.** Every GardenPi
+service except the one-shot `gardenpi-init` (which runs as root) runs as
+`config.application_user`:`config.application_group` (default `pi`:`pi`).
+The installer applies them everywhere: the systemd units (`add-services.sh`
+writes them into `User=`/`Group=` when installing), ownership of
+`/opt/gardenpi`, the virtual environment and web UI packages, the sudo rules
+and the log-cleanup crontab. The account must already exist and, for hardware
+access, belong to the `gpio`, `i2c` and `spi` groups. After changing either
+setting, re-run `sudo /opt/gardenpi/scripts/install-gardenpi.sh`; a service
+restart alone doesn't apply it.
+
+The listen ports are read when each service starts: the API uses
+`handlers.api.listen_port` (default 5000) and the web UI
+`webui.listen_port` (default 8787). If you change the API's port, update the
+web UI's **API URL** (`webui.api_base_url`) to match, then restart both.
+
 Optionally populate watering schedule using
 
 ```
@@ -125,11 +141,35 @@ node scripts/seed-schedule.js   # optional: pre-loads an example watering schedu
 
 By default the app expects a TLS certificate/key already installed at
 `/etc/pki/tls/certs/node.pem` and `/etc/pki/tls/private/node.key` set via Configuration > GardenPi System. Certificates are used by both API and WebUI.
-If you're testing locally and don't have
-those, run `./scripts/generate-cert.sh` instead and set certificate file paths in Configuration > GardenPi System.
 
-**Permissions note:** `/etc/pki/tls/private/node.key` is typically root-only
-readable (`0600`). Whatever OS user runs this app needs read access to it —
+**If they don't exist, the installer creates a temporary one.**
+`install-gardenpi.sh` runs `scripts/setup-tls.sh`, which checks the
+configured `config.tls_cert_file` and `config.tls_key_file`. If either is
+missing (or its directory is), it generates a temporary self-signed pair with
+`scripts/gen-tmp-cert.sh` and moves it into place, creating the directories
+as needed:
+
+- certificate `0644`, private key `0640`, both owned by
+  `config.application_user`:`config.application_group`
+- a newly created private-key directory is `0750`, owned by root with the
+  application group, so only that group can enter it
+- the certificate lists `localhost`, the Pi's host name and its IP
+  addresses, and is valid for 365 days
+
+Browsers warn about a self-signed certificate until you replace it with a real
+one at the same paths (or point the Configuration settings at a real one).
+Existing certificates are never replaced or re-owned. For those, the script
+only checks that the application user can read both files and that they
+match, and warns if not. Run it again at any time:
+`sudo /opt/gardenpi/scripts/setup-tls.sh`.
+
+The API (`gardenpi-api`) reads the same two settings (via
+`bin/gunicorn.conf.py`), so changing them in Configuration applies to both
+services after a restart.
+
+**Permissions note (your own certificates):** a key installed by other tools,
+such as `/etc/pki/tls/private/node.key`, is typically root-only readable
+(`0600`). Whatever OS user runs this app needs read access to it —
 either run the service as `root`, or grant your app user read access, e.g.:
 
 ```bash
@@ -693,7 +733,7 @@ These actions need password-less sudo for a small, fixed set of commands.
 service user:
 
 ```
-sudo /opt/gardenpi/scripts/setup-sudoers.sh               # user pi, restarts + reboot/poweroff
+sudo /opt/gardenpi/scripts/setup-sudoers.sh               # application_user, restarts + reboot/shutdown
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-power    # restarts only
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --user bob    # different service user
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --remove      # take the permissions away again
@@ -962,7 +1002,6 @@ Deployed layout:
       favicon.svg, favicon.ico, apple-touch-icon.png,
       icon-192.png, icon-512.png, site.webmanifest    favicon set (the 🌿 leaf, matching the header)
     scripts/
-      generate-cert.sh          self-signed TLS cert for local/dev use
       seed-schedule.js          loads an example watering schedule
       gardenpi-webui.service    systemd unit, pre-configured for this layout
     garden.example.json     shipped template showing the full shared schema

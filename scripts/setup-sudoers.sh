@@ -14,7 +14,7 @@
 # PiJuice step means the Pi never powers back on after an outage.
 #
 # Usage:
-#   sudo ./setup-sudoers.sh               # user "pi", services + reboot/poweroff
+#   sudo ./setup-sudoers.sh               # garden.json's application_user, services + reboot/shutdown
 #   sudo ./setup-sudoers.sh --no-power    # services only
 #   sudo ./setup-sudoers.sh --user bob    # a different service user
 #   sudo ./setup-sudoers.sh --remove      # delete /etc/sudoers.d/gardenpi
@@ -30,13 +30,16 @@
 # Stop is deliberately not granted: a stopped gardenpi-webui can only be
 # restarted from an ssh session.
 #
+# v1.2 2026/09/25 - default user is garden.json's config.application_user
+#   (via gardenpi-env.sh) instead of a hard-coded pi
 # v1.1 2026/09/23 - shutdown goes through pijuice-safe-shutdown.py: grant
 #   `shutdown -h now` (what that script runs) instead of `systemctl poweroff`
 # v1.0 2026/09/23 - initial version
 
 set -euo pipefail
 
-RUN_AS_USER="pi"
+. "$(dirname "$(readlink -f "$0")")/gardenpi-env.sh"
+RUN_AS_USER="$GARDENPI_USER"   # --user overrides
 ALLOW_POWER=1
 REMOVE=0
 SUDOERS_FILE="/etc/sudoers.d/gardenpi"
