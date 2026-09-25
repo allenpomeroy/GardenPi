@@ -1077,6 +1077,31 @@ Client program  leds.py  communicates with handler to ask for LED status and sen
 
 **Usage**
 
-    leds.py {} 
+    leds.py status {led-label}
+    leds.py {led-label} {command} 
 
-   channel must be 0-7 or "all"
+LED labels - you can use hardware labels below or any alias
+
+    sysred sysgreen sysblue
+    led1red led1green led1blue
+    led2red led2green led2blue
+
+LED commands
+
+    on
+    off
+    blink {count}
+    fastblink
+    flash <colors> <duration>
+
+Examples
+
+  leds.py sysblue on
+  leds.py sensorerr on  (alias for led1red)
+  leds.py led2blue blink 5
+  leds.py led2blue fastblink
+  leds.py led1 red-blue flash 10s
+  leds.py led2red patternblink 4
+  leds.py led1red off
+  leds.py status          # Get status of ALL LEDs
+  leds.py status led1red  # Get status of a single LED
