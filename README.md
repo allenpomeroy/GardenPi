@@ -94,6 +94,23 @@ sudo /opt/gardenpi/scripts/install-gardenpi.sh
 sudo /opt/gardenpi/scripts/restart-services.sh
 ```
 
+Targets Raspberry Pi OS (bookworm or trixie). Before installing anything,
+`install-gardenpi.sh`:
+
+1. Turns on NTP time sync (`timedatectl set-ntp true`) and waits up to 90
+   seconds for the clock to synchronize. With the clock behind, apt rejects
+   repository signatures ("Not live until …") and watering schedules run at
+   the wrong times. If it doesn't sync in time, the install continues with
+   a warning; check that the Pi can reach the internet on UDP port 123.
+2. Runs `apt-get update`.
+3. Installs `nodejs` and `npm`, unless both are already present (the web
+   UI needs Node 18 or newer; trixie ships 20, bookworm 18). A Node.js
+   installed some other way, e.g. from NodeSource, is left alone.
+
+It also installs `swig` and `liblgpio-dev` (from the Raspberry Pi archive):
+on newer Pythons, such as 3.13 on trixie, pip has no prebuilt `lgpio`
+package and compiles it from source.
+
 Optionally populate watering schedule using
 
 ```

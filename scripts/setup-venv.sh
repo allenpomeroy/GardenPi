@@ -10,6 +10,16 @@
 #
 # Run once during setup, and again any time requirements.txt changes.
 #
+# v2.1 2026/09/24
+# - added swig and liblgpio-dev: pip has no prebuilt lgpio wheel for newer
+#   Pythons (e.g. 3.13 on Debian/Raspberry Pi OS trixie), so it builds
+#   lgpio from source, which needs swig to generate the Python wrapper and
+#   the lgpio C library headers to link against (liblgpio-dev, which also
+#   pulls in the liblgpio1 runtime library the built module loads). Without
+#   them the install stops at "command 'swig' failed", then at
+#   "cannot find -llgpio". liblgpio-dev comes from the Raspberry Pi archive
+#   (archive.raspberrypi.com), present on Raspberry Pi OS.
+#
 # v2.0 2026/08/27
 # - added build-essential: the lgpio pip package (replacing RPi.GPIO for
 #   raw GPIO pin access - see garden_gpio.py and requirements.txt) compiles
@@ -34,7 +44,7 @@ fi
 
 echo "==> Installing system packages needed for the venv and hardware libraries..."
 apt-get update
-apt-get install -y python3-venv python3-dev python3-pip build-essential i2c-tools
+apt-get install -y python3-venv python3-dev python3-pip build-essential swig liblgpio-dev i2c-tools
 
 echo "==> Creating $VENV_DIR ..."
 mkdir -p /opt/gardenpi

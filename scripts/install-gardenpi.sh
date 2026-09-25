@@ -5,6 +5,20 @@
 # Install all GardenPi components. Run from anywhere:
 #   sudo /opt/gardenpi/scripts/install-gardenpi.sh
 #
+# v2.1 2026/09/24
+# - first steps are now automatic:
+#   1. turn on NTP time sync (timedatectl set-ntp true) and wait up to 90s
+#      for the clock to synchronize. A clock that's behind makes apt reject
+#      every repository signature ("Not live until ...") and silently fall
+#      back to stale package lists, and on this controller it would also
+#      run watering schedules at the wrong times. If it doesn't sync in
+#      time, the install continues with a warning.
+#   2. apt-get update
+#   3. install nodejs + npm from the OS repositories, unless node and npm
+#      are both already present (so a Node.js installed some other way,
+#      e.g. from NodeSource, is left alone -- Debian's npm package would
+#      conflict with it).
+#
 # v2.0 2026/09/23
 # - fixed: every step used a ./relative path, so the script only worked
 #   when run from inside scripts/ (the README runs it by absolute path from
@@ -24,6 +38,51 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "This script needs to run as root. Try: sudo $0" >&2
   exit 1
 fi
+
+# ---- 1. Clock: turn on NTP sync and wait for it ----
+NTP_WAIT_SECONDS=90
+clock_synced() {
+  [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = "yes" ]
+}
+if command -v timedatectl >/dev/null 2>&1; then
+  echo "==> Enabling NTP time synchronization..."
+  if ! timedatectl set-ntp true; then
+    echo "WARNING: could not enable NTP (is systemd-timesyncd installed?)."
+  fi
+  if ! clock_synced; then
+    echo "==> Waiting up to ${NTP_WAIT_SECONDS}s for the clock to synchronize (currently: $(date))..."
+    for ((i = 0; i < NTP_WAIT_SECONDS; i += 5)); do
+      clock_synced && break
+      sleep 5
+    done
+  fi
+  if clock_synced; then
+    echo "==> Clock synchronized: $(date)"
+  else
+    echo "WARNING: the clock is still not synchronized (it reads: $(date))."
+    echo "         Continuing, but apt may reject repository signatures and watering"
+    echo "         schedules will run at the wrong times until it is. Check that the Pi"
+    echo "         can reach the internet on UDP port 123, then run 'timedatectl'."
+  fi
+  echo
+else
+  echo "WARNING: timedatectl not found; make sure the system clock is correct."
+  echo
+fi
+
+# ---- 2. Package lists ----
+echo "==> Updating package lists..."
+apt-get update
+echo
+
+# ---- 3. Node.js for the web UI ----
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  echo "==> Node.js $(node --version) and npm $(npm --version) already installed."
+else
+  echo "==> Installing Node.js and npm..."
+  apt-get install -y nodejs npm
+fi
+echo
 
 ./fix-perms.sh
 
