@@ -43,6 +43,20 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# ---- 0. Announce system requirements ----
+echo
+echo "These setup steps must be run prior to installing GardenPi:"
+echo "1. sudo raspi-config  .. enable SPI and I2C interfaces"
+echo "2. NTP configuration sudo nano /etc/systemd/timesyncd.conf"
+echo "   Set NTP=<address or hostname of your NTP server>"
+echo "   sudo systemctl daemon-reload"
+echo
+echo "If you proceed before these steps are complete, the"
+echo "installation may fail."
+echo
+echo "Pausing for 10 seconds.  Press <ctrl-c> to stop and run requirements."
+sleep 10
+
 # ---- 1. Clock: turn on NTP sync and wait for it ----
 NTP_WAIT_SECONDS=90
 clock_synced() {
