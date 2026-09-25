@@ -1,4 +1,6 @@
 [Unit]
+# v2.2
+# - removed Wants= on adc/irrigation (see the note above After=).
 # v2.1
 # Sequencing fix: this used to depend on gardenpi-api.service, which is
 # backwards - restart-services.sh's mandatory startup order is
@@ -8,9 +10,13 @@
 # is also itself a client of the ADC handler's socket, so it depends on
 # that too.
 Description=GardenPi Weather
+# No Wants= on the other GardenPi services: each one is enabled on its own,
+# so all of them still start at boot (in this After= order), but starting
+# or restarting this service doesn't pull a stopped/disabled one back up.
+# That's what lets `sudo systemctl disable --now gardenpi-<name>` keep a
+# service down for troubleshooting.
 After=network.target gardenpi-adc.service gardenpi-irrigation.service
 Requires=gardenpi-init.service
-Wants=gardenpi-adc.service gardenpi-irrigation.service
 
 
 [Service]

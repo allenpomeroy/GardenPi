@@ -741,19 +741,59 @@ service user:
 
 ```
 sudo /opt/gardenpi/scripts/setup-sudoers.sh               # application_user, restarts + reboot/shutdown
-sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-power    # restarts only
+sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-power    # no reboot/shutdown
+sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-control  # web UI needs only (no command-line control)
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --user bob    # different service user
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --remove      # take the permissions away again
 ```
 
 This writes `/etc/sudoers.d/gardenpi` (validated with `visudo` before it is
 installed) allowing only exact `systemctl restart gardenpi-….service`,
+single-service `systemctl start|stop|restart|enable|disable [--now] gardenpi-…`,
 `systemctl reboot` and `shutdown -h now` command lines (the last is what
 `pijuice-safe-shutdown.py` runs). The script itself is deliberately not run as
 root: `/opt/gardenpi` is owned by the service user, and a root sudo rule for a
 file that user can edit would amount to giving it root. Until it is in
 place, the Services card still shows status but its buttons are disabled with
 a hint to run the script.
+
+**Controlling services from the command line (troubleshooting).** The same
+rules let the service user start, stop, restart, enable and disable any one
+GardenPi service without a password, with or without the `.service` suffix:
+
+```
+sudo systemctl stop gardenpi-adc
+sudo systemctl start gardenpi-adc
+sudo systemctl restart gardenpi-adc
+sudo systemctl disable --now gardenpi-adc     # stop it and keep it stopped
+sudo systemctl enable --now gardenpi-adc      # undo: start it and start at boot again
+```
+
+One service per command; `--now` may go before or after the name.
+
+**Auto-start: `stop` alone doesn't keep a service down.** Every GardenPi
+service is *enabled*, meaning it starts at boot, and the handlers restart on
+their own if they crash. `systemctl stop` stops a service only until
+something starts it again, which happens:
+
+- at the next reboot (or PiJuice power cycle), since it's still enabled
+- when the web UI restarts it: **Restart all**, **Restart needed**, or its
+  own **Restart** button. Restarting an API or other service from the web UI
+  does *not* start a stopped handler, since the services don't pull each
+  other up (no `Wants=` between them)
+
+To keep a service down, including across reboots, use
+`sudo systemctl disable --now gardenpi-<name>`: it stops the service and
+removes its start-at-boot link. When you're done, `sudo systemctl enable
+--now gardenpi-<name>` turns it back on. `systemctl status gardenpi-<name>`
+shows both states, e.g. `Loaded: … disabled` and `Active: inactive (dead)`.
+The web UI's restart buttons will still start a disabled service if you use
+them, so avoid those while troubleshooting.
+
+Stopping and disabling are for the command line only: the web UI deliberately
+has no Stop button, and a stopped `gardenpi-webui` has to be started again
+from an ssh session. `sudo setup-sudoers.sh --no-control` leaves these
+command-line rules out, granting only what the web UI needs.
 
 ## Configuration Tab
 
