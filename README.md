@@ -122,10 +122,14 @@ access, belong to the `gpio`, `i2c` and `spi` groups. After changing either
 setting, re-run `sudo /opt/gardenpi/scripts/install-gardenpi.sh`; a service
 restart alone doesn't apply it.
 
-The listen ports are read when each service starts: the API uses
-`handlers.api.listen_port` (default 5000) and the web UI
-`webui.listen_port` (default 8787). If you change the API's port, update the
-web UI's **API URL** (`webui.api_base_url`) to match, then restart both.
+The web UI reads its port, `webui.listen_port` (default 8787), from
+`garden.json` when it starts. The API's port is set in two places that must
+match: `handlers.api.listen_port` in `garden.json` and `--bind` in
+`gardenpi-api.service`, whose command-line value is the one the API actually
+uses. To change it, edit both, update the web UI's **API URL**
+(`webui.api_base_url`) to match, reinstall the unit (`add-services.sh`), then
+restart `gardenpi-api` and `gardenpi-webui`. The Configuration page shows the
+API port read-only for this reason.
 
 Optionally populate watering schedule using
 
@@ -163,9 +167,12 @@ only checks that the application user can read both files and that they
 match, and warns if not. Run it again at any time:
 `sudo /opt/gardenpi/scripts/setup-tls.sh`.
 
-The API (`gardenpi-api`) reads the same two settings (via
-`bin/gunicorn.conf.py`), so changing them in Configuration applies to both
-services after a restart.
+The API (`gardenpi-api`) currently takes its certificate and key from
+`--certfile`/`--keyfile` in `gardenpi-api.service`
+(`/etc/pki/tls/certs/node.pem`, `/etc/pki/tls/private/node.key`), which
+override `garden.json`. If you point the two settings elsewhere, change the
+unit to match (or remove those two options, and `bin/gunicorn.conf.py` will
+read them from `garden.json`).
 
 **Permissions note (your own certificates):** a key installed by other tools,
 such as `/etc/pki/tls/private/node.key`, is typically root-only readable
@@ -812,9 +819,9 @@ Hardware" grouping used across GardenPi's configuration surfaces.
 
 | Group | Fields |
 |---|---|
-| **GardenPi System** (`config`) | Config Version *(read-only)*, Code Version *(read-only)*, Last Changed *(read-only)*, Global Log Level (dropdown), TLS Certificate File, TLS Key File, plus a **Users** block (add/remove accounts, change any account's password — see below; this is the one part of the GardenPi System card that isn't backed by `garden.json`) |
+| **GardenPi System** (`config`) | Config Version *(read-only)*, Code Version *(read-only)*, Last Changed *(read-only)*, Global Log Level (dropdown), TLS Certificate File, TLS Key File *(changing these only updates `garden.json`; the API also needs `--certfile`/`--keyfile` edited in `gardenpi-api.service`, then restart `gardenpi-api` and `gardenpi-webui`)*, plus a **Users** block (add/remove accounts, change any account's password — see below; this is the one part of the GardenPi System card that isn't backed by `garden.json`) |
 | **Web UI** (`webui`) | Listener Port, Log Level (dropdown), API URL, API Access Token, Session Secret, Session Timeout (dropdown, `webui.settings.session_timeout_minutes`), Dashboard Refresh in seconds (`webui.settings.poll_interval_seconds`) |
-| **API** (`handlers.api`) | Listener Port, Log Level (dropdown), API Access Token, then a link to this README (`/README.md`) |
+| **API** (`handlers.api`) | Listener Port *(read-only; to change it, edit `garden.json` and `gardenpi-api.service` by hand, then restart `gardenpi-api` and `gardenpi-webui`)*, Log Level (dropdown), API Access Token, then a link to this README (`/README.md`) |
 | **Software → ADC** (`handlers.adc`) | Log Level (dropdown), then **Channel Labels** (collapsed by default): one row per `handlers.adc.channel_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable) |
 | **Software → LEDs** (`handlers.leds`) | Log Level (dropdown) |
 | **Software → Irrigation** (`handlers.irrigation`) | Log Level (dropdown), then **Relay Labels** (collapsed by default): one row per `handlers.irrigation.relay_map` entry: **HW ID** *(read-only)*, **User ID** (editable), **Friendly Name** (editable); then Max Valve Run Time (`max_valve_run_time`, seconds), Allow Concurrent Valves (toggle) |

@@ -1,11 +1,15 @@
 [Unit]
+# v2.4
+# - --bind, --certfile and --keyfile are set on the command line below again.
+#   Command-line values override bin/gunicorn.conf.py, so these -- not
+#   garden.json -- decide the API's port and certificate. Keep them in step
+#   with handlers.api.listen_port and config.tls_cert_file/_key_file (remove
+#   an option to let gunicorn.conf.py take that value from garden.json).
 # v2.3
 # - removed Wants= on the handlers (see the note above After=).
 # v2.2
-# - listen port and TLS certificate/key are no longer hard-coded here:
-#   bin/gunicorn.conf.py (loaded automatically from WorkingDirectory) reads
-#   them from garden.json -- handlers.api.listen_port, and
-#   config.tls_cert_file / config.tls_key_file (as the web UI does).
+# - listen port and TLS certificate/key read from garden.json by
+#   bin/gunicorn.conf.py (superseded by v2.4).
 # - User/Group are installed from garden.json by add-services.sh.
 # v2.1
 # Sequencing: the API is a socket CLIENT of every hardware handler (adc,

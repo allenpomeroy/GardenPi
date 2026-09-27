@@ -1717,6 +1717,9 @@
       `<div class="config-field"><label>Global Log Level</label>${renderLogLevelSelect(['config', 'global_log_level'], getDeepConfig(configWorkingCopy, ['config', 'global_log_level']))}</div>`,
       mappedField(['config', 'tls_cert_file'], 'TLS Certificate File'),
       mappedField(['config', 'tls_key_file'], 'TLS Key File'),
+      // gardenpi-api.service passes its own --certfile/--keyfile, which
+      // override garden.json, so an edit here reaches the web UI but not the API.
+      `<p class="hint config-field-note"><br/>Changing these paths here only updates garden.json. To change the API's certificate, also edit --certfile and --keyfile in gardenpi-api.service manually, then restart gardenpi-api and gardenpi-webui services</p>`,
       mappedField(['config', 'github_repository_url'], 'GitHub Repository')
     ].join('');
 
@@ -1741,8 +1744,13 @@
     const irrigationLogLevel = getDeepConfig(configWorkingCopy, ['handlers', 'irrigation', 'log_level']);
     const weatherLogLevel = getDeepConfig(configWorkingCopy, ['handlers', 'weather', 'log_level']);
 
+    // Listener Port is read-only here: gardenpi-api.service passes --bind on
+    // the gunicorn command line, which overrides garden.json, so the port
+    // has to be changed in both places by hand (and the web UI's API URL
+    // follows it), not from this page.
     const softwareApi = [
-      mappedField(['handlers', 'api', 'listen_port'], 'Listener Port'),
+      mappedField(['handlers', 'api', 'listen_port'], 'Listener Port', { readOnly: true }),
+      `<p class="hint config-field-note"><br/>To change the API port, edit garden.json and gardenpi-api.service manually then restart gardenpi-api and gardenpi-webui services</p>`,
       `<div class="config-field"><label>Log Level</label>${renderLogLevelSelect(['handlers', 'api', 'log_level'], apiLogLevel)}</div>`,
       mappedField(['handlers', 'api', 'token'], 'API Access Token')
     ].join('');
