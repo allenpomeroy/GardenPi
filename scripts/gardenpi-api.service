@@ -22,17 +22,21 @@ After=network.target gardenpi-adc.service gardenpi-irrigation.service gardenpi-l
 
 [Service]
 Type=notify
+
 # User/Group: add-services.sh replaces these with garden.json's
 # config.application_user / config.application_group when installing.
 User=pi
 Group=pi
 WorkingDirectory=/opt/gardenpi/bin
 ExecStart=/opt/gardenpi/python3/bin/gunicorn \
+    --bind 0.0.0.0:5000 \
     --workers 2 \
     --timeout 60 \
     --graceful-timeout 10 \
     --preload \
     --access-logfile - \
+    --certfile /etc/pki/tls/certs/node.pem \
+    --keyfile /etc/pki/tls/private/node.key \
     --error-logfile - \
     'api:create_app()'
 Restart=on-failure
