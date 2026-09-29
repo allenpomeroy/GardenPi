@@ -5,6 +5,7 @@
 //   POST /api/system/services/restart-all       restart every long-running unit
 //   POST /api/system/services/restart-needed    restart only units flagged by config saves
 //   POST /api/system/services/:unit/restart     restart one unit
+//   GET  /api/system/network                    this controller's operational IP (server/networkInfo.js)
 //   POST /api/system/reboot                     reboot the Pi
 //   POST /api/system/shutdown                   power off the Pi via scripts/pijuice-safe-shutdown.py
 //
@@ -17,8 +18,15 @@ const logger = require('../logger');
 const systemControl = require('../systemControl');
 const valveControl = require('../valveControl');
 const restartImpact = require('../restartImpact');
+const networkInfo = require('../networkInfo');
 
 function who(req) { return req.session?.username || 'unknown'; }
+
+router.get('/network', async (req, res, next) => {
+  try {
+    res.json({ ok: true, ...(await networkInfo.getPrimaryAddress()) });
+  } catch (err) { next(err); }
+});
 
 router.get('/services', async (req, res, next) => {
   try {

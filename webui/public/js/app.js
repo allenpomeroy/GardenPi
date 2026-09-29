@@ -1076,6 +1076,25 @@
     return `<select data-config-path="${pathAttr}">${options}</select>`;
   }
 
+  // Configuration > Web UI > System IP Address (read-only). From
+  // GET /api/system/network: the address this controller uses to reach
+  // check-wifi.sh's ping target, i.e. its operational address when it has
+  // several interfaces. Not part of garden.json. null = not loaded yet.
+  let systemNetwork = null;
+  function renderSystemAddressField() {
+    if (!systemNetwork) return renderReadOnlyField('System IP Address', 'Loading…');
+    if (!systemNetwork.ok || !systemNetwork.address) {
+      return renderReadOnlyField('System IP Address', 'Not available');
+    }
+    const value = systemNetwork.interface
+      ? `${systemNetwork.address} (${systemNetwork.interface})`
+      : systemNetwork.address;
+    const others = (systemNetwork.others || []).map(o => `${o.address} (${o.name})`).join(', ');
+    const how = systemNetwork.method ? `Determined by: ${systemNetwork.method}.` : '';
+    return renderReadOnlyField('System IP Address', value) +
+      `<p class="hint config-field-note"><br/>${escapeHtmlAttr(how)}${others ? ` Other addresses: ${escapeHtmlAttr(others)}.` : ''}</p>`;
+  }
+
   function renderReadOnlyField(label, value) {
     return `<div class="config-field"><label>${escapeHtmlAttr(label)}</label><p class="config-readonly-value">${escapeHtmlAttr(value ?? '—')}</p></div>`;
   }
@@ -1733,7 +1752,8 @@
       mappedField(['webui', 'api_token'], 'API Access Token'),
       mappedField(['webui', 'session_secret'], 'Session Secret'),
       `<div class="config-field"><label>Session Timeout</label>${renderSessionTimeoutSelect(['webui', 'settings', 'session_timeout_minutes'], sessionTimeout)}</div>`,
-      mappedField(['webui', 'settings', 'poll_interval_seconds'], 'Dashboard Refresh (seconds)')
+      mappedField(['webui', 'settings', 'poll_interval_seconds'], 'Dashboard Refresh (seconds)'),
+      renderSystemAddressField()
     ].join('');
 
     // ---- Software (per-handler listener/log level + Irrigation's safety
@@ -2251,10 +2271,12 @@
     // Fetch garden.json and the user list together -- users live in
     // users.json (server/db.js), not garden.json, but both render into
     // this tab, so there's no reason to serialize the two requests.
-    const [result, usersResult] = await Promise.all([
+    const [result, usersResult, networkResult] = await Promise.all([
       api('/api/config/current'),
-      api('/api/users')
+      api('/api/users'),
+      api('/api/system/network')
     ]);
+    systemNetwork = networkResult;
     if (!result.ok) {
       commonContainer.innerHTML = `<p class="hint">${result.message}</p>`;
       document.getElementById('config-tree').innerHTML = '';
