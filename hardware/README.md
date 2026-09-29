@@ -35,3 +35,14 @@ Activating more valves simultaneously is likely to cause excessive heat generati
 **Updated!**
 
 All software is consolidated in bin, config, scripts and webui directories.
+
+## Enclosure pictures
+
+<img width="4284" height="5712" alt="IMG_3064" src="https://github.com/user-attachments/assets/32018b65-1f11-41e6-b666-595f95a55586" />
+
+
+<img width="4284" height="5712" alt="IMG_3065" src="https://github.com/user-attachments/assets/a6b0e86c-ac29-4755-9d5e-2578d26ee4a9" />
+
+
+<img width="4284" height="5712" alt="IMG_3067" src="https://github.com/user-attachments/assets/e67ccd40-f431-44bc-85d6-59494f436f80" />
+
