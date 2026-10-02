@@ -362,6 +362,24 @@ Content-Type: application/json
 | LED on/off/blink | POST | `/api/leds` `{led, action}` | Yes |
 | LED status (all or one) | GET | `/api/leds/status[?led=X]` | Yes |
 | Latest/recent weather reading | GET | `/api/weather?last=N` | Yes |
+| Is a rain delay active? | GET | `/api/irrigation/rain-delay` | Yes |
+
+#### Rain delay status
+
+`GET /api/irrigation/rain-delay` reports whether the rain delay (set from the
+web UI's Schedule tab) is pausing scheduled watering. It is read-only; the
+API reads `<webui.data_dir>/rain-delay.json` and never changes it. Times are
+local, with UTC offset.
+
+```
+$ curl -s -H "Authorization: Bearer YOUR-API-TOKEN" https://gctl1:5000/api/irrigation/rain-delay
+{"rain_delay": true, "until": "2026-10-05T13:48:00-05:00",
+ "remaining_seconds": 172680, "set_at": "2026-10-03T13:48:00-05:00", "set_by": "allen"}
+```
+
+When no delay is active (never set, cancelled, or expired), `rain_delay` is
+`false` and the other fields are `null` / `0`. It answers `503` if
+`webui.data_dir` isn't set in garden.json.
 
 ### Response shapes confirmed against a real controller
 

@@ -4,6 +4,10 @@
 #
 # Unified REST API for the Garden Controller system with a single Flask app
 #
+# v2.2 2026/10/02
+# - GET /api/irrigation/rain-delay: reports whether the web UI's rain delay
+#   is active (read-only). Reads <webui.data_dir>/rain-delay.json, which the
+#   web UI scheduler owns; the API never writes it.
 # v2.1 2026/08/29
 # - normalize weather sensors
 # v2.0 2026/08/27
@@ -110,6 +114,7 @@ import csv
 import io
 import logging
 import argparse
+from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, request, jsonify
 
@@ -123,7 +128,7 @@ from garden_config import (
 # Constants
 # --------------------------
 
-VERSION = "2.0"
+VERSION = "2.2"
 
 # The only hardcoded default kept: where to find garden.json. Every other
 # value below must be present in the config file - see garden_config.py.
@@ -178,6 +183,12 @@ def load_config(config_path):
     weather_socket = require(weather_cfg, "socket", "handlers.weather.socket")
     weather_csv = require(weather_cfg, "weather_file", "handlers.weather.weather_file")
 
+    # Rain delay state is written by the web UI (webui.data_dir). Optional:
+    # if it isn't set, /api/irrigation/rain-delay answers 503 rather than
+    # stopping the whole API from starting.
+    webui_data_dir = cfg.get("webui", {}).get("data_dir") or ""
+    rain_delay_file = os.path.join(webui_data_dir, "rain-delay.json") if webui_data_dir else None
+
     return {
         "socket_timeout": socket_timeout,
         "cert_file": cert_file,
@@ -195,6 +206,7 @@ def load_config(config_path):
         "led_id_map": led_id_map,
         "weather_socket": weather_socket,
         "weather_csv": weather_csv,
+        "rain_delay_file": rain_delay_file,
     }
 
 
@@ -284,6 +296,7 @@ def create_app(config_path=None, log_level=None, token=None):
     led_id_map = cfg["led_id_map"]
     weather_socket = cfg["weather_socket"]
     weather_csv = cfg["weather_csv"]
+    rain_delay_file = cfg["rain_delay_file"]
     valid_actions = cfg["valid_actions"]
 
     # Token: an explicit argument (e.g. from a CLI flag) wins outright;
@@ -587,6 +600,74 @@ def create_app(config_path=None, log_level=None, token=None):
         except json.JSONDecodeError:
             _log(request, 200)
             return jsonify({'output': response}), 200
+
+    @app.route('/api/irrigation/rain-delay', methods=['GET'])
+    @require_token
+    def irrigation_rain_delay():
+        """
+        GET /api/irrigation/rain-delay - is scheduled watering paused?
+
+        Active:   {"rain_delay": true, "until": "2026-10-05T13:48:00-05:00",
+                   "remaining_seconds": 172800, "set_at": "...", "set_by": "allen"}
+        Inactive: {"rain_delay": false, "until": null, "remaining_seconds": 0,
+                   "set_at": null, "set_by": null}
+
+        Times are local, with UTC offset. The rain delay is set and cancelled
+        from the web UI's Schedule tab; this endpoint only reports it.
+        """
+        inactive = {'rain_delay': False, 'until': None, 'remaining_seconds': 0,
+                    'set_at': None, 'set_by': None}
+        if not rain_delay_file:
+            detail = 'webui.data_dir is not set in garden.json; rain delay state is unavailable'
+            _log(request, 503, detail=detail)
+            return jsonify({'error': detail}), 503
+
+        def parse_ts(value):
+            # The web UI writes JavaScript ISO strings ("...Z").
+            return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+
+        def local_iso(dt):
+            return dt.astimezone().isoformat(timespec='seconds')
+
+        try:
+            with open(rain_delay_file, 'r') as f:
+                raw = f.read().strip()
+        except FileNotFoundError:
+            _log(request, 200)
+            return jsonify(inactive), 200          # never set, or cancelled
+        except OSError as e:
+            _log(request, 503, detail=f'cannot read {rain_delay_file}: {e}')
+            return jsonify({'error': f'Cannot read rain delay state: {e.strerror}'}), 503
+
+        if not raw:
+            _log(request, 200)
+            return jsonify(inactive), 200
+        try:
+            state = json.loads(raw)
+            until = parse_ts(state['until'])
+        except (ValueError, KeyError, TypeError) as e:
+            _log(request, 500, detail=f'malformed {rain_delay_file}: {e}')
+            return jsonify({'error': 'Rain delay state file is malformed'}), 500
+
+        now = datetime.now(timezone.utc)
+        if until <= now:
+            _log(request, 200)
+            return jsonify(inactive), 200          # expired
+
+        set_at = None
+        if state.get('setAt'):
+            try:
+                set_at = local_iso(parse_ts(state['setAt']))
+            except ValueError:
+                set_at = None
+        _log(request, 200)
+        return jsonify({
+            'rain_delay': True,
+            'until': local_iso(until),
+            'remaining_seconds': int((until - now).total_seconds()),
+            'set_at': set_at,
+            'set_by': state.get('setBy'),
+        }), 200
 
     # ===============================
     # LED endpoints
