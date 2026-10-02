@@ -455,6 +455,7 @@
       const handlerRow = (label, ok) => `<div class="mini-stat"><span>${label} handler</span><span class="val" style="color:${ok ? '#2f6d4f' : '#c0392b'}">${ok ? 'up' : 'down'}</span></div>`;
       parts.push(`<div class="widget"><h3>Scheduler &amp; Controller Health</h3>
         <div class="mini-stat"><span>Scheduler</span><span class="val">${running ? 'Running a valve now' : 'Idle'}</span></div>
+        ${status.rainDelay && status.rainDelay.active ? `<div class="mini-stat"><span>Rain delay</span><span class="val" style="color:var(--amber)">until ${new Date(status.rainDelay.until).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span></div>` : ''}
         <div class="mini-stat"><span>API connection</span><span class="val">${status.apiMode === 'mock' ? 'Simulated' : 'Live'}</span></div>
         <div class="mini-stat"><span>Controller status</span><span class="val" style="color:${sys.status === 'ok' ? '#2f6d4f' : '#c0392b'}">${sys.status || 'unknown'}</span></div>
         ${handlerRow('ADC', handlers.adc)}
@@ -527,6 +528,10 @@
       case 'valve_off': return `${e.valveName} turned OFF (${e.source})`;
       case 'valve_off_all': return `All valves and pumps turned OFF (${e.source})`;
       case 'schedule_deferred': return `Deferred: ${e.message}`;
+      case 'schedule_rain_delayed': return e.message || `Rain delay: skipped ${e.valveName}`;
+      case 'rain_delay_set': return `Rain delay set until ${new Date(e.until).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (${e.source})`;
+      case 'rain_delay_cleared': return `Rain delay cancelled (${e.source})`;
+      case 'schedule_skipped': return e.message || `Skipped scheduled watering for ${e.valveName}`;
       case 'schedule_updated': return e.message;
       case 'service_restart': return `Service ${e.unit} restarted (${e.source})`;
       case 'service_restart_all': return `All GardenPi services restarted (${e.source})`;
@@ -867,6 +872,7 @@
     const [valvesResult, scheduleResult] = await Promise.all([api('/api/valves'), api('/api/schedule')]);
     if (valvesResult.ok) valvesCache = valvesResult.valves;
     if (!scheduleResult.ok) return;
+    renderRainDelay(scheduleResult.rainDelay);
 
     const byValve = {};
     for (const v of valvesCache) byValve[v.id] = { name: v.name, entries: [] };
@@ -876,57 +882,95 @@
     }
 
     const container = document.getElementById('schedule-by-valve');
+    const fmtRun = iso => new Date(iso).toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'});
+    // With the date, for cancelled/replacement runs that may be a week or more apart.
+    const fmtRunDated = iso => new Date(iso).toLocaleString([], {weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    const nextRunCell = e => {
+      if (e.currentlyRunning) return '<span class="running-badge">RUNNING</span>';
+      if (e.currentlySkipped) return '<span class="skipped-badge">SKIPPED</span>';
+      if (e.currentlyRainDelayed) return '<span class="rain-badge">RAIN DELAY</span>';
+      if (e.nextRunReason && e.nextRun) {
+        const why = e.nextRunReason === 'rain' ? 'Cancelled by the rain delay' : 'This run will be skipped';
+        return `<span class="skipped-run" title="${why}">${fmtRunDated(e.nextRun)}</span>`
+          + (e.effectiveNextRun ? ` <span class="hint">${fmtRunDated(e.effectiveNextRun)}</span>` : '');
+      }
+      return e.nextRun ? fmtRun(e.nextRun) : '—';
+    };
+    // Header checkbox: checked when every row is set, "dash" when only some are.
+    const headerBox = (attr, valveId, entries, isSet, label, title) => {
+      const n = entries.filter(isSet).length;
+      const all = entries.length > 0 && n === entries.length;
+      const some = n > 0 && !all;
+      return `<label class="th-checkbox" title="${title}"><input type="checkbox" ${attr}="${valveId}" ${all ? 'checked' : ''} ${some ? 'data-indeterminate="1"' : ''} ${entries.length === 0 ? 'disabled' : ''}/> ${label}</label>`;
+    };
+
     container.innerHTML = Object.entries(byValve).map(([valveId, group]) => {
-      const allEnabled = group.entries.length > 0 && group.entries.every(e => e.enabled !== false);
       return `
       <div class="valve-schedule-block">
         <h3>${group.name}</h3>
+        <div class="table-scroll">
         <table class="schedule-table">
           <thead><tr>
             <th>Day</th><th>Start</th><th>Duration</th>
-            <th><label class="th-checkbox"><input type="checkbox" data-select-all="${valveId}" ${allEnabled ? 'checked' : ''} ${group.entries.length === 0 ? 'disabled' : ''}/> Enabled</label></th>
+            <th>${headerBox('data-select-all', valveId, group.entries, e => e.enabled !== false, 'Enabled', 'Enable or disable every window for this valve')}</th>
+            <th>${headerBox('data-skip-all', valveId, group.entries, e => e.skipNext === true, 'Skip next', 'Skip the next run of every window for this valve (one week). Each box clears itself once its run has been skipped.')}</th>
             <th>Next run</th><th></th>
           </tr></thead>
           <tbody>
             ${group.entries.length ? group.entries.sort((a,b)=>a.dayOfWeek-b.dayOfWeek || a.start.localeCompare(b.start)).map(e => `
-              <tr>
+              <tr class="${e.enabled === false ? 'row-disabled' : ''}">
                 <td>${e.dayName}</td>
                 <td>${e.start}</td>
                 <td>${Math.round(e.durationSeconds/60)} min</td>
                 <td><input type="checkbox" data-toggle="${e.id}" ${e.enabled ? 'checked' : ''}/></td>
-                <td>${e.currentlyRunning ? '<span class="running-badge">RUNNING</span>' : (e.nextRun ? new Date(e.nextRun).toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'}) : '—')}</td>
+                <td><input type="checkbox" data-skip="${e.id}" ${e.skipNext ? 'checked' : ''} title="Skip only the next run of this window"/></td>
+                <td>${nextRunCell(e)}</td>
                 <td class="row-actions">
                   <button class="btn-secondary btn-small" data-edit="${e.id}">Edit</button>
                   <button class="btn-danger btn-small" data-delete="${e.id}">Delete</button>
                 </td>
               </tr>
-            `).join('') : `<tr><td colspan="6" class="hint">No watering windows yet.</td></tr>`}
+            `).join('') : `<tr><td colspan="7" class="hint">No watering windows yet.</td></tr>`}
           </tbody>
         </table>
+        </div>
       </div>`;
     }).join('');
 
+    container.querySelectorAll('[data-indeterminate]').forEach(cb => { cb.indeterminate = true; });
+
+    // Header checkboxes: apply one field to every window of a valve.
+    const bulkSet = async (valveId, field, value) => {
+      const entries = byValve[valveId]?.entries || [];
+      const results = await Promise.all(entries.map(e =>
+        api(`/api/schedule/${e.id}`, { method: 'PUT', body: JSON.stringify({ [field]: value }) })
+      ));
+      const failed = results.find(r => !r.ok);
+      if (failed) showToast(failed.message, 'error');
+      else if (field === 'skipNext') {
+        showToast(value ? `Next run of every ${byValve[valveId].name} window will be skipped.`
+                        : `Skips cancelled for ${byValve[valveId].name}.`, 'success');
+      }
+      loadSchedule();
+    };
     container.querySelectorAll('[data-select-all]').forEach(cb => {
-      cb.addEventListener('change', async () => {
-        const valveId = cb.dataset.selectAll;
-        const entries = byValve[valveId]?.entries || [];
-        const checked = cb.checked;
-        const results = await Promise.all(entries.map(e =>
-          api(`/api/schedule/${e.id}`, { method: 'PUT', body: JSON.stringify({ enabled: checked }) })
-        ));
-        const failed = results.find(r => !r.ok);
-        if (failed) showToast(failed.message, 'error');
-        loadSchedule();
-      });
+      cb.addEventListener('change', () => bulkSet(cb.dataset.selectAll, 'enabled', cb.checked));
+    });
+    container.querySelectorAll('[data-skip-all]').forEach(cb => {
+      cb.addEventListener('change', () => bulkSet(cb.dataset.skipAll, 'skipNext', cb.checked));
     });
 
-    container.querySelectorAll('[data-toggle]').forEach(cb => {
+    // Per-row checkboxes.
+    const rowToggle = (attr, field) => container.querySelectorAll(`[${attr}]`).forEach(cb => {
       cb.addEventListener('change', async () => {
-        const result = await api(`/api/schedule/${cb.dataset.toggle}`, { method: 'PUT', body: JSON.stringify({ enabled: cb.checked }) });
+        const id = cb.getAttribute(attr);
+        const result = await api(`/api/schedule/${id}`, { method: 'PUT', body: JSON.stringify({ [field]: cb.checked }) });
         if (!result.ok) { showToast(result.message, 'error'); cb.checked = !cb.checked; }
         else loadSchedule();
       });
     });
+    rowToggle('data-toggle', 'enabled');
+    rowToggle('data-skip', 'skipNext');
     container.querySelectorAll('[data-delete]').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('Remove this watering window?')) return;
@@ -944,6 +988,88 @@
     });
   }
 
+  // Rain delay card (top of the Schedule tab)
+  function fmtDuration(ms) {
+    const mins = Math.max(0, Math.round(ms / 60000));
+    const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+    if (d) return `${d}d ${h}h`;
+    if (h) return `${h}h ${m}m`;
+    return `${m}m`;
+  }
+  function localDateValue(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  function renderRainDelay(rd) {
+    const card = document.getElementById('rain-delay-card');
+    if (!card) return;
+    if (rd && rd.active) {
+      const until = new Date(rd.until);
+      card.classList.add('active');
+      card.innerHTML = `
+        <div class="rain-delay-row">
+          <div class="rain-delay-text">
+            <strong>🌧 Rain delay on.</strong> Scheduled watering is paused until
+            <strong>${until.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</strong>
+            <span class="hint">(${fmtDuration(until - Date.now())} left, set by ${escapeHtmlRD(rd.setBy || 'unknown')})</span>
+          </div>
+          <div class="rain-delay-actions">
+            <button class="btn-secondary btn-small" data-rd-extend="1">+1 day</button>
+            <button class="btn-secondary btn-small" data-rd-cancel>Cancel rain delay</button>
+          </div>
+        </div>`;
+    } else {
+      const today = localDateValue(new Date());
+      const maxDay = localDateValue(new Date(Date.now() + 30 * 86400000));
+      card.classList.remove('active');
+      card.innerHTML = `
+        <div class="rain-delay-row">
+          <div class="rain-delay-text">
+            <strong>🌧 Rain delay</strong>
+            <span class="hint">Pause all scheduled watering, every valve. Resumes automatically.</span>
+          </div>
+          <div class="rain-delay-actions">
+            ${[1, 2, 3, 7].map(n => `<button class="btn-secondary btn-small" data-rd-days="${n}">${n} day${n > 1 ? 's' : ''}</button>`).join('')}
+            <span class="hint">or through</span>
+            <input type="date" id="rd-date" min="${today}" max="${maxDay}" aria-label="Rain delay through date" />
+            <button class="btn-primary btn-small" data-rd-date>Set</button>
+          </div>
+        </div>`;
+    }
+  }
+  function escapeHtmlRD(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  async function setRainDelay(body, okMsg) {
+    const result = await api('/api/schedule/rain-delay', { method: 'PUT', body: JSON.stringify(body) });
+    if (!result.ok) { showToast(result.message || 'Could not set rain delay.', 'error'); return; }
+    showToast(okMsg || 'Rain delay set. Scheduled watering is paused.', 'success');
+    loadSchedule();
+  }
+  document.getElementById('rain-delay-card').addEventListener('click', async (ev) => {
+    const t = ev.target.closest('button');
+    if (!t) return;
+    if (t.dataset.rdDays) {
+      setRainDelay({ days: Number(t.dataset.rdDays) });
+    } else if (t.hasAttribute('data-rd-date')) {
+      const v = document.getElementById('rd-date').value;
+      if (!v) { showToast('Pick the last day to pause watering.', 'error'); return; }
+      const [y, m, d] = v.split('-').map(Number);
+      // Through the end of the chosen day, in this browser's local time.
+      setRainDelay({ until: new Date(y, m - 1, d + 1, 0, 0, 0).toISOString() });
+    } else if (t.dataset.rdExtend) {
+      const r = await api('/api/schedule/rain-delay');
+      const base = r.ok && r.rainDelay.active ? new Date(r.rainDelay.until).getTime() : Date.now();
+      setRainDelay({ until: new Date(base + 86400000).toISOString() }, 'Rain delay extended by a day.');
+    } else if (t.hasAttribute('data-rd-cancel')) {
+      if (!confirm('Cancel the rain delay and resume the watering schedule?')) return;
+      const result = await api('/api/schedule/rain-delay', { method: 'DELETE' });
+      if (!result.ok) showToast(result.message || 'Could not cancel rain delay.', 'error');
+      else showToast('Rain delay cancelled. Watering schedule resumed.', 'success');
+      loadSchedule();
+    }
+  });
+
   // Modal (add/edit watering window)
   const modal = document.getElementById('modal-window');
   function openWindowModal(entry) {
@@ -956,6 +1082,7 @@
     document.getElementById('window-start').value = entry ? entry.start : '06:00';
     document.getElementById('window-duration').value = entry ? Math.round(entry.durationSeconds / 60) : 5;
     document.getElementById('window-enabled').checked = entry ? entry.enabled !== false : true;
+    document.getElementById('window-skip').checked = entry ? entry.skipNext === true : false;
     document.getElementById('window-error').textContent = '';
     modal.classList.remove('hidden');
   }
@@ -970,7 +1097,8 @@
       dayOfWeek: Number(document.getElementById('window-day').value),
       start: document.getElementById('window-start').value,
       durationSeconds: Number(document.getElementById('window-duration').value) * 60,
-      enabled: document.getElementById('window-enabled').checked
+      enabled: document.getElementById('window-enabled').checked,
+      skipNext: document.getElementById('window-skip').checked
     };
     const result = id
       ? await api(`/api/schedule/${id}`, { method: 'PUT', body: JSON.stringify(payload) })

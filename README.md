@@ -262,8 +262,10 @@ Set the API base URL and authentication Token for API and Web UI once you're rea
   limit is currently configured, not a hardcoded guess) — plus an "Emergency
   stop" button that stops every relay at once.
 - **Schedule tab** — an in-app scheduler with add/edit/delete watering
-  windows, per-valve "select all" enable/disable, next-run times, and a live
-  "RUNNING" badge.
+  windows, per-valve "select all" enable/disable, a per-window **Skip next**
+  checkbox (with a per-valve "skip all" header box), a **Rain delay** that
+  pauses all scheduled watering for 1–30 days, next-run times, and live
+  "RUNNING" / "SKIPPED" / "RAIN DELAY" badges.
 - **Configuration tab** — a full editor for the `garden.json` file. It is laid
   out to match the "GardenPi System / Web UI / Software" grouping used across all
   GardenPi configuration surfaces, with type-preserving edits, masked
@@ -570,6 +572,33 @@ Design notes:
 - Each valve's block on the Schedule tab has a "select all" checkbox next to
   the **Enabled** column header, to enable/disable every window for that
   valve at once.
+- **Skip next** skips only the next occurrence of a window, then clears
+  itself. Ticking the box records the start time of the run to skip
+  (`skipRunAt` in `schedule.json`); when that window arrives the valve is not
+  started, the box unticks, and a "Skipped" event appears in Recent Activity.
+  The **Skip next** header checkbox ticks every window for that valve, which
+  cancels that valve's watering for the coming week in one click; each box
+  clears as its run is skipped, so the normal schedule resumes on its own.
+  Ticking it while a window is already running skips next week's run (stop
+  the current run from the Irrigation tab). If the Pi is off during a skipped
+  window, the flag is cleared afterwards rather than carried to the next week.
+  A header checkbox shows a dash when only some of the windows are ticked.
+- **Rain delay** (top of the Schedule tab) pauses scheduled watering for
+  every valve: 1, 2, 3 or 7 days from now, or through the end of a chosen
+  date (30 days at most). It's stored in `data/rain-delay.json`, so it
+  survives restarts, and ends on its own. While it's on:
+  - no window whose start time falls inside the delay is started, and a
+    window the scheduler is running when the delay is set is stopped;
+  - a window that began during the delay is not started part-way through
+    when the delay ends;
+  - manual runs from the Irrigation tab are not affected;
+  - each suppressed window is logged once in Recent Activity, the Next run
+    column shows the cancelled run struck through with the next real one,
+    and the dashboard's Scheduler widget shows when the delay ends.
+
+  "+1 day" extends an active delay; "Cancel rain delay" resumes the schedule
+  immediately. Skip next and the rain delay work together: Next run always
+  shows the first run that will actually happen.
 
 ## Authentication and sessions
 

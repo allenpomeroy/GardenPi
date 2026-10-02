@@ -258,6 +258,18 @@ table.schedule-table th, table.schedule-table td { text-align: left; padding: 0.
 table.schedule-table th { color: var(--gray-600); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .th-checkbox { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.02em; cursor: pointer; }
 .running-badge { background: #2f8fd6; color: #fff; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+.skipped-badge { background: #d68a2f; color: #fff; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+.skipped-run { text-decoration: line-through; color: var(--gray-600); }
+.rain-badge { background: #4a6fa5; color: #fff; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.rain-delay-card { padding: 0.85rem 1.15rem; }
+.rain-delay-card.active { background: var(--tint-amber-bg); border-left: 4px solid var(--amber); color: var(--tint-amber-text); }
+.rain-delay-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; }
+.rain-delay-text { font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: baseline; }
+.rain-delay-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.rain-delay-actions input[type=date] { padding: 0.3rem 0.4rem; border-radius: 6px; border: 1px solid var(--gray-400); background: var(--surface); color: inherit; font-size: 0.82rem; }
+.schedule-table tr.row-disabled td { color: var(--gray-600); }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.schedule-table th, table.schedule-table td { white-space: nowrap; }
 .row-actions { display: flex; gap: 0.4rem; }
 
 /* ---------- Settings ---------- */

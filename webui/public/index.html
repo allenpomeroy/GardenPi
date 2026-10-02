@@ -135,6 +135,7 @@
         <h2>Watering Schedule</h2>
         <button id="btn-add-window" class="btn-primary">+ Add watering window</button>
       </div>
+      <div id="rain-delay-card" class="card rain-delay-card"></div>
       <div id="schedule-by-valve"></div>
     </section>
 
@@ -233,6 +234,10 @@
       <label class="inline-checkbox">
         <input type="checkbox" id="window-enabled" checked />
         Enabled
+      </label>
+      <label class="inline-checkbox">
+        <input type="checkbox" id="window-skip" />
+        Skip next run only
       </label>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" id="btn-cancel-window">Cancel</button>

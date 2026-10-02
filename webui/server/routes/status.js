@@ -47,7 +47,8 @@ router.get('/all', async (req, res, next) => {
       sensors,
       sensorLabels: getSensorLabels(),
       events: db.getEvents(20),
-      schedulerActive: scheduler.status().some(e => e.currentlyRunning)
+      schedulerActive: scheduler.status().some(e => e.currentlyRunning),
+      rainDelay: scheduler.rainDelay()
     });
   } catch (err) {
     next(err);

@@ -12,11 +12,24 @@ As of 2026/09/23
   the webui use the handlers.api.token versus a duplicate webui.api_token
   Then remove the API Access Token field from Configuration > Web UI
 
+- Consider setting the rain delay automatically from the weather station's
+  rain gauge (e.g. more than N inches in the last 24 hours -> 2-day delay).
+
 - Consider a per-service "View log" button on Configuration > Services
   (last N lines of `journalctl -u <service>`; the webui user would need to
   be in the `systemd-journal` group, no sudo needed)
 
 ## Done
+
+- 2026/10/02 Schedule tab: **Rain delay**. Pause all scheduled watering for
+  1/2/3/7 days or through a chosen date (max 30), with +1 day and Cancel.
+  Stops a scheduled run in progress; manual runs unaffected. Shown on the
+  dashboard Scheduler widget and in Recent Activity.
+
+- 2026/10/02 Schedule tab: **Skip next** column. Skips one run of a window
+  and then clears itself; the header checkbox skips the next run of every
+  window for that valve (a week off in one click). Skipped runs are logged
+  in Recent Activity and shown as SKIPPED / struck-through in Next run.
 
 - 2026/09/23 System uptime badge in the header, left of the API badge
   (`Up 5h 12m`, `Up 45d 3h`, `Up 1y 45d`; hover for exact boot time).

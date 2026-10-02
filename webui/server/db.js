@@ -25,6 +25,7 @@ const FILES = {
   users: path.join(DATA_DIR, 'users.json'),
   sessions: path.join(DATA_DIR, 'sessions.json'),
   schedule: path.join(DATA_DIR, 'schedule.json'),
+  rainDelay: path.join(DATA_DIR, 'rain-delay.json'),
   events: path.join(DATA_DIR, 'events.json')
 };
 
@@ -58,9 +59,20 @@ function getSessions() { return readJson(FILES.sessions, {}); }
 function saveSessions(sessions) { writeJson(FILES.sessions, sessions); }
 
 // ---- Schedule ----
-// Each entry: { id, valveId, dayOfWeek (0=Sun..6=Sat), start "HH:MM", durationSeconds, enabled }
+// Each entry: { id, valveId, dayOfWeek (0=Sun..6=Sat), start "HH:MM", durationSeconds, enabled,
+//               skipNext, skipRunAt (ISO start of the occurrence to skip; server-managed) }
 function getSchedule() { return readJson(FILES.schedule, []); }
 function saveSchedule(entries) { writeJson(FILES.schedule, entries); }
+
+// ---- Rain delay ----
+// { until: ISO, setAt: ISO, setBy } or null. Kept after it expires (until the
+// next set/cancel) so windows that STARTED during the delay stay suppressed
+// for the rest of their run rather than starting part-way through.
+function getRainDelay() { return readJson(FILES.rainDelay, null); }
+function saveRainDelay(delay) {
+  if (delay) writeJson(FILES.rainDelay, delay);
+  else { try { fs.unlinkSync(FILES.rainDelay); } catch (_) { /* already gone */ } }
+}
 
 // ---- Recent activity events (curated, human-readable feed shown on the
 // dashboard -- newest first. Distinct from the full raw application log.) ----
@@ -84,5 +96,6 @@ module.exports = {
   getUsers, saveUsers, hasAnyUser,
   getSessions, saveSessions,
   getSchedule, saveSchedule,
+  getRainDelay, saveRainDelay,
   addEvent, getEvents, getEventsPage
 };
