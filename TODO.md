@@ -23,6 +23,7 @@ As of 2026/09/23
 
 - 2026/10/02 API: `GET /api/irrigation/rain-delay` reports whether the rain
   delay is active, when it ends and who set it (read-only, token-protected).
+  Documented in Configuration > API Reference.
 
 - 2026/10/02 Schedule tab: **Rain delay**. Pause all scheduled watering for
   1/2/3/7 days or through a chosen date (max 30), with +1 day and Cancel.

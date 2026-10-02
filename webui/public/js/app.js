@@ -2036,7 +2036,7 @@
       {
         method: 'GET', path: '/api/health', auth: false,
         description: 'Health check. Reports whether the API can see each hardware handler\'s Unix socket on disk - not a live round-trip to each one.',
-        response: JSON.stringify({ status: 'ok', service: 'api', version: '2.0', handlers: { adc: true, irrigation: true, leds: true, weather: true } }, null, 2),
+        response: JSON.stringify({ status: 'ok', service: 'api', version: '2.2', handlers: { adc: true, irrigation: true, leds: true, weather: true } }, null, 2),
         curl: `curl -sk ${baseUrl}/api/health`
       },
       {
@@ -2063,6 +2063,14 @@
         ],
         response: JSON.stringify({ farbed: 'on', nearbed: 'off', mag: 'off', plants: 'off', valve5: 'off', outsidelights: 'off', pump2: 'off' }, null, 2),
         curl: `${tokenSetup}\ncurl -sk ${authHeader} "${baseUrl}/api/irrigation/status"\n\n# single relay\ncurl -sk ${authHeader} "${baseUrl}/api/irrigation/status?relay=farbed"`
+      },
+      {
+        method: 'GET', path: '/api/irrigation/rain-delay', auth: true,
+        description: 'Is a rain delay pausing scheduled watering? Read-only: the delay is set and cancelled on the Schedule tab, and this reports it from <code>&lt;webui.data_dir&gt;/rain-delay.json</code>. Times are local with UTC offset. With no delay active (never set, cancelled or expired), <code>rain_delay</code> is <code>false</code> and the other fields are <code>null</code> / <code>0</code>. Answers 503 if <code>webui.data_dir</code> is not set.',
+        response: JSON.stringify({ rain_delay: true, until: '2026-10-05T13:48:00-05:00', remaining_seconds: 172680, set_at: '2026-10-03T13:48:00-05:00', set_by: 'allen' }, null, 2)
+          + '\n\n# no delay active\n'
+          + JSON.stringify({ rain_delay: false, until: null, remaining_seconds: 0, set_at: null, set_by: null }, null, 2),
+        curl: `${tokenSetup}\ncurl -sk ${authHeader} "${baseUrl}/api/irrigation/rain-delay"`
       },
       {
         method: 'POST', path: '/api/leds', auth: true,
