@@ -7,6 +7,13 @@
 # enable / disable), and, unless --no-power is given, reboot / shut down the
 # Pi -- all without a password -- by writing /etc/sudoers.d/gardenpi.
 #
+# Unless --no-admin is given, the service user may also run ANY command as
+# any user with sudo, but only after entering its own password (like a
+# member of the sudo group). The password-less rules above are unaffected:
+# sudo uses the LAST rule that matches a command, so the general rule is
+# written first and the NOPASSWD rules after it. The account needs a
+# password for this to be usable (sudo passwd <user>).
+#
 # Shutdown: the web UI runs scripts/pijuice-safe-shutdown.py as the
 # service user (NOT as root -- the script lives under /opt/gardenpi, which
 # that user owns and could edit). The script arms the PiJuice and then runs
@@ -17,6 +24,7 @@
 # Usage:
 #   sudo ./setup-sudoers.sh               # garden.json's application_user, services + reboot/shutdown
 #   sudo ./setup-sudoers.sh --no-power    # services only
+#   sudo ./setup-sudoers.sh --no-admin    # no general sudo (with password)
 #   sudo ./setup-sudoers.sh --no-control  # web UI needs only: no command-line
 #                                         # start/stop/enable/disable
 #   sudo ./setup-sudoers.sh --user bob    # a different service user
@@ -40,6 +48,10 @@
 # pulls it back up); `enable --now` undoes that. The web UI still has no
 # Stop button and never issues any of these except restart.
 #
+# v1.5 2026/10/02 - the service user may run any command with sudo after
+#   entering its password (--no-admin leaves that out); the password-less
+#   systemctl / shutdown rules are unchanged. Warns if the account has no
+#   usable password.
 # v1.4 2026/09/25 - command-line start, restart without .service, and
 #   enable/disable [--now] alongside stop (--no-control leaves them all out;
 #   --no-stop is kept as an alias)
@@ -58,6 +70,7 @@ set -euo pipefail
 RUN_AS_USER="$GARDENPI_USER"   # --user overrides
 ALLOW_POWER=1
 ALLOW_CONTROL=1
+ALLOW_ADMIN=1
 REMOVE=0
 SUDOERS_FILE="/etc/sudoers.d/gardenpi"
 
@@ -66,8 +79,9 @@ while [ $# -gt 0 ]; do
     --user) RUN_AS_USER="${2:?--user needs a name}"; shift 2 ;;
     --no-power) ALLOW_POWER=0; shift ;;
     --no-control|--no-stop) ALLOW_CONTROL=0; shift ;;
+    --no-admin) ALLOW_ADMIN=0; shift ;;
     --remove) REMOVE=1; shift ;;
-    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "Unknown option: $1 (see --help)" >&2; exit 1 ;;
   esac
 done
@@ -124,8 +138,17 @@ trap 'rm -f "$TMP"' EXIT
   echo "# Lets the GardenPi service user ($RUN_AS_USER) restart GardenPi services"
   [ "$ALLOW_CONTROL" -eq 1 ] && echo "# and start/stop/enable/disable them from the command line (troubleshooting),"
   [ "$ALLOW_POWER" -eq 1 ] && echo "# and reboot / shut down the system (shutdown via pijuice-safe-shutdown.py)."
+  [ "$ALLOW_ADMIN" -eq 1 ] && echo "# Any other command is allowed too, but only with $RUN_AS_USER's password."
   echo "# Re-run setup-sudoers.sh to regenerate; do not edit by hand."
   echo
+  if [ "$ALLOW_ADMIN" -eq 1 ]; then
+    # Must come BEFORE the NOPASSWD line: sudo applies the last matching
+    # rule, so this line first would otherwise make the GardenPi commands
+    # ask for a password too.
+    echo "# General sudo, password required."
+    echo "$RUN_AS_USER ALL=(ALL:ALL) ALL"
+    echo
+  fi
   printf 'Cmnd_Alias GARDENPI_RESTART = \\\n'
   first=1
   for svc in $ALL_SERVICES; do
@@ -165,6 +188,7 @@ trap 'rm -f "$TMP"' EXIT
     echo
     aliases="$aliases, GARDENPI_POWER"
   fi
+  echo "# GardenPi commands, no password. Keep this the last rule in the file."
   echo "$RUN_AS_USER ALL=(root) NOPASSWD: $aliases"
 } > "$TMP"
 
@@ -182,3 +206,15 @@ echo
 cat "$SUDOERS_FILE"
 echo
 echo "Check with: sudo -u $RUN_AS_USER sudo -n -l $SYSTEMCTL restart gardenpi-leds.service"
+
+if [ "$ALLOW_ADMIN" -eq 1 ]; then
+  # passwd -S field 2: P = usable password, L = locked, NP = none.
+  pw_state="$(passwd -S "$RUN_AS_USER" 2>/dev/null | awk '{print $2}')"
+  if [ "$pw_state" != "P" ]; then
+    echo
+    echo "NOTE: $RUN_AS_USER has no usable password (passwd -S: ${pw_state:-unknown}), so the"
+    echo "      general 'sudo <command>' rule can't be used until you set one:"
+    echo "        sudo passwd $RUN_AS_USER"
+    echo "      The password-less GardenPi commands work either way."
+  fi
+fi

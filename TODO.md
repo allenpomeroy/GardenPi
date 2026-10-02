@@ -21,6 +21,16 @@ As of 2026/09/23
 
 ## Done
 
+- 2026/10/02 PiJuice battery charge limiter (`bin/pijuice-charge-limiter.py`,
+  `pijuice-charge-limiter.service`) holds the battery at 45-50% and blocks
+  charging outside 0-40°C. `install-gardenpi.sh` installs `pijuice-base`;
+  `add-services.sh` installs and starts the service when `pijuice` imports
+  (`--no-charge-limiter` to leave it out).
+
+- 2026/10/02 sudoers: the service user may run any command with sudo after
+  entering its password (`setup-sudoers.sh --no-admin` to leave it out); the
+  password-less systemctl / shutdown rules are unchanged.
+
 - 2026/10/02 API: `GET /api/irrigation/rain-delay` reports whether the rain
   delay is active, when it ends and who set it (read-only, token-protected).
   Documented in Configuration > API Reference.

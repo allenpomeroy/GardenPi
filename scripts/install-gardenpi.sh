@@ -5,6 +5,16 @@
 # Install all GardenPi components. Run from anywhere:
 #   sudo /opt/gardenpi/scripts/install-gardenpi.sh
 #
+# v2.2 2026/10/02
+# - step 4: install pijuice-base (the PiJuice Python module) with apt.
+#   pijuice-safe-shutdown.py and pijuice-charge-limiter.py both need it.
+#   If apt can't install it, the install continues with a warning: the web
+#   UI then refuses to shut down, and add-services.sh skips the charge
+#   limiter.
+# - add-services.sh now also installs pijuice-charge-limiter.service.
+# - setup-sudoers.sh now also lets the service user run any command with
+#   sudo after entering its password.
+#
 # v2.1 2026/09/24
 # - first steps are now automatic:
 #   1. turn on NTP time sync (timedatectl set-ntp true) and wait up to 90s
@@ -99,6 +109,20 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
 else
   echo "==> Installing Node.js and npm..."
   apt-get install -y nodejs npm
+fi
+echo
+
+# ---- 4. PiJuice Python module (safe shutdown + charge limiter) ----
+if /usr/bin/python3 -c 'import pijuice' >/dev/null 2>&1; then
+  echo "==> PiJuice Python module already installed."
+else
+  echo "==> Installing pijuice-base (PiJuice Python module)..."
+  if ! apt-get install -y pijuice-base; then
+    echo "WARNING: could not install pijuice-base. Without it, Shut down in the"
+    echo "         web UI is refused and pijuice-charge-limiter is not installed."
+    echo "         Install it later with 'sudo apt install pijuice-base', then"
+    echo "         re-run: sudo /opt/gardenpi/scripts/add-services.sh"
+  fi
 fi
 echo
 

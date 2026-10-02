@@ -106,6 +106,13 @@ Targets Raspberry Pi OS (bookworm or trixie). Before installing anything,
 3. Installs `nodejs` and `npm`, unless both are already present (the web
    UI needs Node 18 or newer; trixie ships 20, bookworm 18). A Node.js
    installed some other way, e.g. from NodeSource, is left alone.
+4. Installs `pijuice-base`, the PiJuice Python module, unless the system
+   `python3` can already import `pijuice`. Safe shutdown and the battery
+   charge limiter both need it (see
+   [PiJuice battery charge limiter](#pijuice-battery-charge-limiter)). If apt
+   can't install it, the install continues with a warning: the web UI then
+   refuses to shut down, and the charge limiter isn't installed until you
+   install the package and re-run `add-services.sh`.
 
 It also installs `swig` and `liblgpio-dev` (from the Raspberry Pi archive):
 on newer Pythons, such as 3.13 on trixie, pip has no prebuilt `lgpio`
@@ -717,7 +724,91 @@ curl -k -H "Authorization: Bearer <token>" "https://<host>:5000/api/leds/status"
 
 ## GardenPi Components Run As systemd Services
 
-Unit files `scripts/gardenpi-*.service` are used by add-services.sh to setup each service
+Unit files `scripts/gardenpi-*.service` are used by add-services.sh to setup each service.
+`add-services.sh` also installs `scripts/pijuice-charge-limiter.service` when the
+PiJuice Python module is present (see below).
+
+### PiJuice battery charge limiter
+
+A LiPo battery that sits at 100% charge, especially in a warm outdoor
+enclosure, ages much faster than one held around half charge. Since the
+PiJuice is on mains power almost all the time, `bin/pijuice-charge-limiter.py`
+keeps the battery between 45% and 50%:
+
+- When the charge reaches **50%**, it turns PiJuice charging off.
+- When the charge falls below **45%**, it turns charging back on. Between the
+  two, it leaves charging as it is, so it doesn't switch back and forth.
+- When the battery is **40°C or hotter**, or **0°C or colder**, it blocks
+  charging. The block lifts once the temperature is 3°C back inside that
+  range.
+- After a change, it waits at least 2 minutes before turning charging back
+  on, so a noisy reading can't toggle it rapidly. Turning charging off is
+  always immediate.
+
+It checks every 30 seconds and logs a status line every 15 minutes. The
+charging setting is written to the PiJuice's RAM, not its EEPROM, so if the
+PiJuice itself loses power, it starts up charging normally.
+
+It runs as the systemd service `pijuice-charge-limiter`, with
+`/usr/bin/python3` (the `pijuice` module comes from the `pijuice-base` apt
+package, not the GardenPi virtual environment). Like the `gardenpi-*`
+services, it runs as `config.application_user`:`config.application_group`:
+`add-services.sh` writes them into the unit's `User=`/`Group=` when
+installing. That account needs the `i2c` group to reach the PiJuice;
+`add-services.sh` warns if it's missing.
+
+`install-gardenpi.sh` installs `pijuice-base` and `add-services.sh` installs,
+enables and starts the service. If the system `python3` can't import
+`pijuice`, `add-services.sh` skips the limiter with a message rather than
+install a service that would only fail and restart. To add it later:
+
+```
+sudo apt install pijuice-base
+sudo /opt/gardenpi/scripts/add-services.sh
+```
+
+To change the limits, edit the `ExecStart=` line in
+`scripts/pijuice-charge-limiter.service` and re-run `add-services.sh`, which
+reinstalls the unit and restarts the service. The options are:
+
+| Option | Default | Unit file | Meaning |
+|---|---|---|---|
+| `--upper` | 50 | 50 | turn charging off at or above this % |
+| `--lower` | 45 | 45 | turn charging on below this % |
+| `--max-temp` | 45 | 40 | block charging at or above this battery °C |
+| `--min-temp` | 0 | 0 | block charging at or below this battery °C |
+| `--temp-hysteresis` | 3 | 3 | °C back inside the range before the block lifts |
+| `--no-temp` | off | off | ignore battery temperature |
+| `--interval` | 30 | 30 | seconds between checks |
+| `--min-switch-interval` | 120 | 120 | seconds before charging may be turned back on |
+| `--summary-interval` | 900 | 900 | seconds between status log lines |
+| `--non-volatile` | off | off | write the setting to the PiJuice EEPROM |
+| `--on-exit leave\|enable` | leave | leave | what to do with charging when the service stops |
+| `--bus`, `--address` | 1, 0x14 | 1, 0x14 | PiJuice I2C bus and address |
+| `--debug` | off | off | log every check |
+
+Checking on it:
+
+```
+systemctl status pijuice-charge-limiter
+journalctl -u pijuice-charge-limiter -n 50
+```
+
+To turn it off and keep it off across reboots:
+
+```
+sudo /opt/gardenpi/scripts/add-services.sh --no-charge-limiter
+```
+
+Charging stays as it was last set (`--on-exit leave`). If it was off, turn
+the service on again or re-enable charging with the PiJuice tools. A later
+`install-gardenpi.sh`, or `add-services.sh` without the option, installs and
+starts it again.
+
+`pijuice-charge-limiter` is not a `gardenpi-*` service: it isn't listed on
+Configuration > Services, isn't part of **Restart all** or
+`restart-services.sh`, and isn't in the password-less sudo rules. Control it
+from ssh with `sudo systemctl …`, which asks for the service user's password.
 
 ### Config and code versions
 
@@ -782,7 +873,8 @@ status, a **Restart** button for each, **Restart all**, and **Reboot system** /
   on charge (5%) and to cut the 5V rail 60 seconds later, then halts the OS, so
   the Pi powers back on when external power returns. It runs as the web UI's
   user with the system `/usr/bin/python3`, which needs:
-  - the `pijuice` Python module: `sudo apt install pijuice-base`
+  - the `pijuice` Python module: `sudo apt install pijuice-base` (installed
+    by `install-gardenpi.sh`)
   - I2C access for that user: `sudo usermod -aG i2c pi` (default on Raspberry Pi OS)
 
   Before anything is stopped, the web UI checks that the PiJuice answers. If it
@@ -790,13 +882,15 @@ status, a **Restart** button for each, **Restart all**, and **Reboot system** /
   power it back on.
 
 These actions need password-less sudo for a small, fixed set of commands.
-`install-gardenpi.sh` sets this up; to do it by hand, or after changing the
-service user:
+`install-gardenpi.sh` sets this up, and also lets the service user run any
+other command with sudo after entering its own password. To do it by hand, or
+after changing the service user:
 
 ```
 sudo /opt/gardenpi/scripts/setup-sudoers.sh               # application_user, restarts + reboot/shutdown
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-power    # no reboot/shutdown
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-control  # web UI needs only (no command-line control)
+sudo /opt/gardenpi/scripts/setup-sudoers.sh --no-admin    # no general sudo with password
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --user bob    # different service user
 sudo /opt/gardenpi/scripts/setup-sudoers.sh --remove      # take the permissions away again
 ```
@@ -810,6 +904,19 @@ root: `/opt/gardenpi` is owned by the service user, and a root sudo rule for a
 file that user can edit would amount to giving it root. Until it is in
 place, the Services card still shows status but its buttons are disabled with
 a hint to run the script.
+
+**General sudo, with a password.** Unless you pass `--no-admin`, the file also
+lets the service user run any command as any user with sudo, the same as a
+member of the `sudo` group: `sudo apt upgrade`, `sudo nano /etc/hosts`,
+`sudo systemctl restart pijuice-charge-limiter`, and so on. Those ask for the
+service user's password. The GardenPi commands listed above still don't, as
+long as they are typed exactly as shown. The general rule is written before
+the password-less ones, because sudo uses the last rule that matches a
+command; `sudo -l` lists both. For this to be usable the account needs a
+password. `setup-sudoers.sh` warns if it doesn't have one; set it with
+`sudo passwd pi` (or your `application_user`). Pick a strong one: the web UI
+and the API run as this user, so the password is what stands between a flaw
+in them and root.
 
 **Controlling services from the command line (troubleshooting).** The same
 rules let the service user start, stop, restart, enable and disable any one
