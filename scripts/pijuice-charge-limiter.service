@@ -1,0 +1,22 @@
+[Unit]
+Description=PiJuice LiPo charge limiter (hold battery around 45-50%)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/gardenpi/bin/pijuice-charge-limiter.py --upper 50 --lower 45 --max-temp 40
+Restart=always
+RestartSec=15
+
+# Run unprivileged; access to /dev/i2c-* comes from the i2c group.
+# If you hit permission errors, replace these two lines with: User=root
+DynamicUser=yes
+SupplementaryGroups=i2c
+
+# Light hardening
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
