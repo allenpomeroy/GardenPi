@@ -333,7 +333,7 @@ REST API v1.0**.
 
 ### Authentication
 
-All endpoints except `/api/health` require authentication with a bearer token.
+All endpoints except `/api` and `/api/health` require authentication with a bearer token.
 
 Authentication token is supplied using the HTTP `Authorization` header:
 ```
@@ -361,7 +361,10 @@ Content-Type: application/json
 
 | Purpose | Method | Path | Auth |
 |---|---|---|---|
-| Health / handler status | GET | `/api/health` | No |
+| Index of every endpoint (method, path, auth, description) | GET | `/api` | No |
+| Health / handler status (live probe of every handler; 503 if any fails) | GET | `/api/health` | No |
+| ADC channel ids and user-assigned names | GET | `/api/adc/channels` | Yes |
+| Read one ADC channel | GET | `/api/adc?channel=ID` | Yes |
 | Read all ADC channels | GET | `/api/adc?channel=all` | Yes |
 | Turn a relay on/off / get status | POST | `/api/irrigation` `{relay, action}` | Yes |
 | Relay status (all or one) | GET | `/api/irrigation/status[?relay=X]` | Yes |
@@ -370,6 +373,27 @@ Content-Type: application/json
 | LED status (all or one) | GET | `/api/leds/status[?led=X]` | Yes |
 | Latest/recent weather reading | GET | `/api/weather?last=N` | Yes |
 | Is a rain delay active? | GET | `/api/irrigation/rain-delay` | Yes |
+| Relay ids, user-assigned names, valve/pump, safety timeout | GET | `/api/irrigation/relays` | Yes |
+| Weather sensor names, `/api/weather` field, enabled | GET | `/api/weather/sensors` | Yes |
+
+#### Discovering endpoints and ids
+
+`GET /api` lists every endpoint the running API serves, so it is always in
+step with the installed version. The three name endpoints list the ids each
+command accepts, with the names set on the Configuration page. They read
+garden.json as it is on disk, so renames show up without a restart.
+
+```
+$ curl -sk https://gctl1:5000/api | python3 -m json.tool
+$ curl -sk -H "Authorization: Bearer YOUR-API-TOKEN" https://gctl1:5000/api/adc/channels
+{"channels": [{"id": "daylight", "hardware_id": "channel0", "user_id": "daylight",
+  "friendly": "Daylight"}, ...], "count": 8, "success": true}
+```
+
+`id` is what to pass to `/api/adc?channel=` (or as `relay` for irrigation):
+the user_id when one is set, otherwise the hardware_id. Either form is
+accepted. `/api/weather/sensors` gives each sensor's `field`, the key it
+appears under in `/api/weather` responses.
 
 #### Rain delay status
 
@@ -868,7 +892,7 @@ status, a **Restart** button for each, **Restart all**, and **Reboot system** /
   because they `Require=` it.
 - **Reboot** / **Shut down** require typing `REBOOT` / `SHUTDOWN`, and turn off
   every valve and pump through the API first.
-- **Shut down** runs `scripts/pijuice-safe-shutdown.py` rather than
+- **Shut down** runs `bin/pijuice-safe-shutdown.py` rather than
   `shutdown`/`systemctl poweroff` directly. The script sets the PiJuice to wake
   on charge (5%) and to cut the 5V rail 60 seconds later, then halts the OS, so
   the Pi powers back on when external power returns. It runs as the web UI's

@@ -374,7 +374,12 @@ async function realGetSensors() {
 }
 
 async function realGetSystemStatus() {
-  const res = await client.get('/api/health');
+  // API v2.3+ answers 503 (with the full JSON body) when any handler fails
+  // its live probe. Treat that as data, not a transport error, so the
+  // dashboard still shows which handler is down and why.
+  const res = await client.get('/api/health', {
+    validateStatus: s => s === 200 || s === 503
+  });
   return res.data;
 }
 

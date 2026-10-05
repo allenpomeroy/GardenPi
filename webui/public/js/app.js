@@ -452,16 +452,20 @@
       const running = status.schedulerActive;
       const sys = status.system || {};
       const handlers = sys.handlers || {};
-      const handlerRow = (label, ok) => `<div class="mini-stat"><span>${label} handler</span><span class="val" style="color:${ok ? '#2f6d4f' : '#c0392b'}">${ok ? 'up' : 'down'}</span></div>`;
+      const details = sys.details || {};
+      const handlerRow = (label, ok, key) => {
+        const why = !ok && details[key]?.error ? String(details[key].error).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) : '';
+        return `<div class="mini-stat"${why ? ` title="${why}"` : ''}><span>${label} handler</span><span class="val" style="color:${ok ? '#2f6d4f' : '#c0392b'}">${ok ? 'up' : (why ? 'error' : 'down')}</span></div>`;
+      };
       parts.push(`<div class="widget"><h3>Scheduler &amp; Controller Health</h3>
         <div class="mini-stat"><span>Scheduler</span><span class="val">${running ? 'Running a valve now' : 'Idle'}</span></div>
         ${status.rainDelay && status.rainDelay.active ? `<div class="mini-stat"><span>Rain delay</span><span class="val" style="color:var(--amber)">until ${new Date(status.rainDelay.until).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span></div>` : ''}
         <div class="mini-stat"><span>API connection</span><span class="val">${status.apiMode === 'mock' ? 'Simulated' : 'Live'}</span></div>
         <div class="mini-stat"><span>Controller status</span><span class="val" style="color:${sys.status === 'ok' ? '#2f6d4f' : '#c0392b'}">${sys.status || 'unknown'}</span></div>
-        ${handlerRow('ADC', handlers.adc)}
-        ${handlerRow('Irrigation', handlers.irrigation)}
-        ${handlerRow('LED', handlers.leds)}
-        ${handlerRow('Weather', handlers.weather)}
+        ${handlerRow('ADC', handlers.adc, 'adc')}
+        ${handlerRow('Irrigation', handlers.irrigation, 'irrigation')}
+        ${handlerRow('LED', handlers.leds, 'leds')}
+        ${handlerRow('Weather', handlers.weather, 'weather')}
       </div>`);
     }
 
@@ -2035,9 +2039,33 @@
     const endpoints = [
       {
         method: 'GET', path: '/api/health', auth: false,
-        description: 'Health check. Reports whether the API can see each hardware handler\'s Unix socket on disk - not a live round-trip to each one.',
-        response: JSON.stringify({ status: 'ok', service: 'api', version: '2.2', handlers: { adc: true, irrigation: true, leds: true, weather: true } }, null, 2),
+        description: 'Health check. Sends each hardware handler a read-only command over its Unix socket and checks it answers, in time, without an error (e.g. irrigation reads its relay register over I2C). Returns 200 with status <code>ok</code>, or 503 with status <code>degraded</code> and the reason in <code>details</code>.',
+        response: JSON.stringify({ status: 'ok', service: 'api', version: '2.3', handlers: { adc: true, irrigation: true, leds: true, weather: true }, details: { adc: { ok: true, error: null, latency_ms: 4 }, irrigation: { ok: true, error: null, latency_ms: 3 }, leds: { ok: true, error: null, latency_ms: 2 }, weather: { ok: true, error: null, latency_ms: 2 } } }, null, 2),
         curl: `curl -sk ${baseUrl}/api/health`
+      },
+      {
+        method: 'GET', path: '/api', auth: false,
+        description: 'Index of every endpoint the running API serves: method, path, whether it needs the token, and a one-line description.',
+        response: JSON.stringify({ service: 'api', version: '2.4', endpoints: [{ method: 'GET', path: '/api/adc/channels', auth: true, description: 'List ADC channels and their user-assigned names; "id" is what to pass to /api/adc?channel=.' }] }, null, 2),
+        curl: `curl -sk ${baseUrl}/api`
+      },
+      {
+        method: 'GET', path: '/api/adc/channels', auth: true,
+        description: 'ADC channels with their user-assigned names. <code>id</code> is what to pass to <code>/api/adc?channel=</code> (user_id when set, else hardware_id). Reads garden.json as it is now, so renames show up without a restart.',
+        response: JSON.stringify({ channels: [{ id: 'daylight', hardware_id: 'channel0', user_id: 'daylight', friendly: 'Daylight' }], count: 8, success: true }, null, 2),
+        curl: `${tokenSetup}\ncurl -sk ${authHeader} "${baseUrl}/api/adc/channels"`
+      },
+      {
+        method: 'GET', path: '/api/irrigation/relays', auth: true,
+        description: 'Relays with their user-assigned names, whether each is a valve or pump, and whether the safety auto-off timer applies. <code>id</code> is what to pass as <code>relay</code>.',
+        response: JSON.stringify({ relays: [{ id: 'farbed', hardware_id: 'valve1', user_id: 'farbed', friendly: 'Far Bed', kind: 'valve', safety_timeout: true }], count: 7, success: true }, null, 2),
+        curl: `${tokenSetup}\ncurl -sk ${authHeader} "${baseUrl}/api/irrigation/relays"`
+      },
+      {
+        method: 'GET', path: '/api/weather/sensors', auth: true,
+        description: 'Weather sensors with their user-assigned names, where each reading comes from, whether it is enabled, and <code>field</code>: the key it appears under in <code>/api/weather</code>.',
+        response: JSON.stringify({ sensors: [{ sensor_id: 's_daylight', field: 'daylight_lux', source: 'adc', source_id: 'daylight', friendly: 'Daylight', enabled: true }], count: 17, success: true }, null, 2),
+        curl: `${tokenSetup}\ncurl -sk ${authHeader} "${baseUrl}/api/weather/sensors"`
       },
       {
         method: 'GET', path: '/api/adc', auth: true,
@@ -2107,7 +2135,7 @@
     ];
 
     return `<p class="hint">
-      Every endpoint except <code>/api/health</code> requires
+      Every endpoint except <code>/api</code> and <code>/api/health</code> requires
       <code>Authorization: Bearer &lt;token&gt;</code>, where the token is the
       <strong>API Access Token</strong> in the API pane at the top of this page
       (<code>handlers.api.token</code>). If that field is left empty,

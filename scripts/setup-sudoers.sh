@@ -14,7 +14,7 @@
 # written first and the NOPASSWD rules after it. The account needs a
 # password for this to be usable (sudo passwd <user>).
 #
-# Shutdown: the web UI runs scripts/pijuice-safe-shutdown.py as the
+# Shutdown: the web UI runs bin/pijuice-safe-shutdown.py as the
 # service user (NOT as root -- the script lives under /opt/gardenpi, which
 # that user owns and could edit). The script arms the PiJuice and then runs
 # `sudo shutdown -h now`, so that exact command line is what's granted

@@ -4,6 +4,43 @@
 #
 # Unified REST API for the Garden Controller system with a single Flask app
 #
+# v2.4 2026/10/04
+# - name/discovery endpoints, so callers can find valid ids and the
+#   user-assigned names without reading garden.json:
+#     GET /api                     - index of every endpoint (method, path,
+#                                    auth, one-line description); no auth
+#     GET /api/adc/channels        - ADC channels: id to pass to
+#                                    /api/adc?channel=, hardware_id,
+#                                    user_id, friendly
+#     GET /api/irrigation/relays   - relays: id to pass as "relay",
+#                                    hardware_id, user_id, friendly, kind
+#                                    (valve/pump), safety_timeout
+#     GET /api/weather/sensors     - weather sensors: sensor_id, the field
+#                                    name it appears under in /api/weather,
+#                                    source/source_id, friendly, enabled
+#   These read garden.json as it is on disk now (re-read when its mtime
+#   changes), so a rename on the Configuration page shows up immediately -
+#   weather sensor/input label edits don't restart the API.
+# v2.3 2026/10/02
+# - /api/health now does a live round-trip to every handler instead of
+#   only checking that its Unix socket file exists. A handler whose process
+#   is alive but whose hardware is failing (e.g. the power controller's
+#   MCP23017 unreachable because the board has no power) used to report
+#   "irrigation": true / "status": "ok" while the dashboard showed the
+#   irrigation LED in Error. Each handler is now sent a cheap read-only
+#   command and must answer, in time, with a non-error response:
+#     adc        -> read one channel (first one the handler knows)
+#     irrigation -> "status" (reads the relay GPIO register over I2C)
+#     leds       -> "status"
+#     weather    -> "status"
+#   Probes run in parallel, so the endpoint takes at most ~one
+#   config.socket_timeout even if several handlers hang.
+# - response keeps the same shape ("handlers" is still name -> bool) and
+#   adds "details": name -> {ok, error, latency_ms} saying why a handler
+#   failed.
+# - returns HTTP 503 (was always 200) when status is "degraded", so
+#   monitoring (Zabbix, load balancers, curl -f) can alert on the status
+#   code alone.
 # v2.2 2026/10/02
 # - GET /api/irrigation/rain-delay: reports whether the web UI's rain delay
 #   is active (read-only). Reads <webui.data_dir>/rain-delay.json, which the
@@ -114,6 +151,8 @@ import csv
 import io
 import logging
 import argparse
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, request, jsonify
@@ -128,7 +167,7 @@ from garden_config import (
 # Constants
 # --------------------------
 
-VERSION = "2.2"
+VERSION = "2.4"
 
 # The only hardcoded default kept: where to find garden.json. Every other
 # value below must be present in the config file - see garden_config.py.
@@ -333,6 +372,7 @@ def create_app(config_path=None, log_level=None, token=None):
                 return jsonify({'error': 'Invalid authorization token'}), 403
 
             return f(*args, **kwargs)
+        decorated.requires_token = True
         return decorated
 
     def _log(req, status, detail=None):
@@ -378,26 +418,98 @@ def create_app(config_path=None, log_level=None, token=None):
     # Health endpoint (no auth)
     # ===============================
 
+    # ---- live handler probes used by /api/health ----
+
+    def _json_ok(resp):
+        """Probe check for handlers that answer `status` with a JSON
+        object: anything that isn't a dict, or carries an "error" key,
+        counts as a failure."""
+        try:
+            data = json.loads(resp)
+        except ValueError:
+            return f"unexpected response: {resp[:120]!r}"
+        if not isinstance(data, dict):
+            return f"unexpected response: {resp[:120]!r}"
+        if "error" in data:
+            return str(data["error"])
+        return None
+
+    def _probe_simple(sock_path, command):
+        """Send one read-only command; return None on success or an error
+        string."""
+        if not os.path.exists(sock_path):
+            return f"socket not found: {sock_path}"
+        resp = handler_command(sock_path, command, socket_timeout)
+        if not resp:
+            return "empty response"
+        return _json_ok(resp)
+
+    def _probe_adc():
+        """The ADC handler has no status command, so read a real channel.
+        A channel the handler skipped at startup (no pin) answers
+        "Unknown channel" - move on to the next one rather than calling
+        the whole handler down for it."""
+        if not os.path.exists(adc_socket):
+            return f"socket not found: {adc_socket}"
+        last = "no ADC channels configured"
+        for hardware_id in adc_id_map["order"]:
+            resp = handler_command(adc_socket, hardware_id, socket_timeout)
+            if resp.startswith("ERROR: Unknown channel"):
+                last = resp
+                continue
+            if resp.startswith("ERROR"):
+                return resp[len("ERROR:"):].strip() or resp
+            try:
+                float(resp)
+            except ValueError:
+                return f"unexpected response: {resp[:120]!r}"
+            return None
+        return last
+
+    health_probes = {
+        'adc': _probe_adc,
+        'irrigation': lambda: _probe_simple(irrigation_socket, "status"),
+        'leds': lambda: _probe_simple(leds_socket, "status"),
+        'weather': lambda: _probe_simple(weather_socket, "status"),
+    }
+
+    def _run_probe(name):
+        started = time.monotonic()
+        try:
+            err = health_probes[name]()
+        except ConnectionError as e:
+            err = str(e)
+        except Exception as e:  # never let one probe take down /api/health
+            err = f"probe failed: {e}"
+        latency_ms = int((time.monotonic() - started) * 1000)
+        return name, {'ok': err is None, 'error': err, 'latency_ms': latency_ms}
+
+    # ===============================
+    # Health endpoint (no auth)
+    # ===============================
+
     @app.route('/api/health', methods=['GET'])
     def health():
-        """Health check - reports handler reachability"""
-        handlers = {}
-        for name, sock_path in [
-            ('adc', adc_socket),
-            ('irrigation', irrigation_socket),
-            ('leds', leds_socket),
-            ('weather', weather_socket),
-        ]:
-            handlers[name] = os.path.exists(sock_path)
+        """Live health check of every handler; 200 when all answer, 503 (status "degraded") otherwise."""
+        with ThreadPoolExecutor(max_workers=len(health_probes)) as pool:
+            results = dict(pool.map(_run_probe, health_probes))
 
+        details = {name: results[name] for name in health_probes}
+        handlers = {name: d['ok'] for name, d in details.items()}
         all_ok = all(handlers.values())
-        _log(request, 200)
+        status_code = 200 if all_ok else 503
+
+        if not all_ok:
+            failed = ", ".join(f"{n}: {d['error']}" for n, d in details.items() if not d['ok'])
+            _log(request, status_code, detail=failed)
+
         return jsonify({
             'status': 'ok' if all_ok else 'degraded',
             'service': 'api',
             'version': VERSION,
-            'handlers': handlers
-        }), 200
+            'handlers': handlers,
+            'details': details,
+        }), status_code
 
     # ===============================
     # ADC endpoints
@@ -575,6 +687,8 @@ def create_app(config_path=None, log_level=None, token=None):
     @require_token
     def irrigation_status():
         """
+        Relay on/off status for every relay, or one (?relay=).
+
         GET /api/irrigation/status              - all relays
         GET /api/irrigation/status?relay=farbed  - single relay (user_id or hardware_id)
         """
@@ -605,7 +719,9 @@ def create_app(config_path=None, log_level=None, token=None):
     @require_token
     def irrigation_rain_delay():
         """
-        GET /api/irrigation/rain-delay - is scheduled watering paused?
+        Is the web UI's rain delay pausing scheduled watering?
+
+        GET /api/irrigation/rain-delay
 
         Active:   {"rain_delay": true, "until": "2026-10-05T13:48:00-05:00",
                    "remaining_seconds": 172800, "set_at": "...", "set_by": "allen"}
@@ -677,8 +793,9 @@ def create_app(config_path=None, log_level=None, token=None):
     @require_token
     def control_leds():
         """
-        Control LEDs, by hardware_id or alias (LEDs have no user_id -
-        hardware_id and led labels are read-only).
+        Control an LED, group or alias (on/off/blink...).
+
+        LEDs have no user_id - hardware_id and led labels are read-only.
         POST /api/leds  {"led": "sysblue", "action": "on"}
         POST /api/leds  {"led": "led1", "action": "flash-red-blue", "duration": "10s"}
         POST /api/leds  {"led": "led2red", "action": "patternblink", "count": 3}
@@ -734,6 +851,8 @@ def create_app(config_path=None, log_level=None, token=None):
     @require_token
     def led_status():
         """
+        LED state and effect for every LED, or one (?led=).
+
         GET /api/leds/status          - all LEDs
         GET /api/leds/status?led=X    - single LED, group, or alias
         """
@@ -759,6 +878,142 @@ def create_app(config_path=None, log_level=None, token=None):
             return jsonify({'output': response}), 200
 
     # ===============================
+    # Names / discovery endpoints
+    # ===============================
+
+    # Same table as the KNOWN_FIELD_RENAMES used by /api/weather below and
+    # WEATHER_FIELD_BY_SENSOR in webui/server/sensorLabels.js: sensor_map id
+    # -> field name in /api/weather responses. Unlisted sensors appear under
+    # their own sensor_map id.
+    WEATHER_FIELD_BY_SENSOR = {
+        's_wind_speed': 'windspeed_mph', 's_rain': 'rain_inches',
+        's_daylight': 'daylight_lux', 's_pressure': 'pressure_v',
+        's_moisture1': 'moisture1_v', 's_moisture2': 'moisture2_v',
+        's_moisture3': 'moisture3_v', 's_wind_dir': 'wind_dir_deg',
+        's_int_temp': 'int_temp_f', 's_int_humidity': 'int_humidity',
+        's_ext_temp': 'ext_temp_f', 's_ext_humidity': 'ext_humidity',
+    }
+
+    _names_cache = {'key': None, 'cfg': None}
+
+    def _current_config():
+        """garden.json as it is on disk now, re-parsed only when its
+        mtime/size changes. Raises OSError/ValueError on read/parse
+        failure."""
+        st = os.stat(config_path)
+        key = (st.st_mtime_ns, st.st_size)
+        if _names_cache['key'] != key:
+            with open(config_path, 'r') as f:
+                _names_cache['cfg'] = json.load(f)
+            _names_cache['key'] = key
+        return _names_cache['cfg']
+
+    def _map_entries(entries):
+        out = []
+        for e in entries if isinstance(entries, list) else []:
+            if not isinstance(e, dict) or not e.get('hardware_id'):
+                continue
+            hw = e['hardware_id']
+            out.append({
+                'id': e.get('user_id') or hw,
+                'hardware_id': hw,
+                'user_id': e.get('user_id'),
+                'friendly': e.get('friendly') or e.get('user_id') or hw,
+            })
+        return out
+
+    def _names_response(builder):
+        try:
+            handlers_cfg = _current_config().get('handlers', {})
+            return builder(handlers_cfg)
+        except (OSError, ValueError) as e:
+            _log(request, 500, detail=f"reading {config_path}: {e}")
+            return jsonify({'error': 'Could not read configuration'}), 500
+
+    @app.route('/api/adc/channels', methods=['GET'])
+    @require_token
+    def list_adc_channels():
+        """List ADC channels and their user-assigned names; "id" is what to pass to /api/adc?channel=."""
+        def build(h):
+            channels = _map_entries(h.get('adc', {}).get('channel_map'))
+            _log(request, 200)
+            return jsonify({'channels': channels, 'count': len(channels), 'success': True}), 200
+        return _names_response(build)
+
+    @app.route('/api/irrigation/relays', methods=['GET'])
+    @require_token
+    def list_relays():
+        """List relays (valves and pumps) and their user-assigned names; "id" is what to pass as "relay"."""
+        def build(h):
+            irr = h.get('irrigation', {})
+            exempt = set(irr.get('no_timeout_relays') or [])
+            relays = _map_entries(irr.get('relay_map'))
+            for r in relays:
+                hw = r['hardware_id']
+                # Same rule the irrigation handler uses: valveN ids are
+                # valves (subject to allow_concurrent_valves); others pumps.
+                r['kind'] = 'valve' if hw.startswith('valve') else 'pump'
+                r['safety_timeout'] = hw not in exempt
+            _log(request, 200)
+            return jsonify({'relays': relays, 'count': len(relays), 'success': True}), 200
+        return _names_response(build)
+
+    @app.route('/api/weather/sensors', methods=['GET'])
+    @require_token
+    def list_weather_sensors():
+        """List weather sensors, their user-assigned names, and the field each appears under in /api/weather."""
+        def build(h):
+            wx = h.get('weather', {})
+            owners = {
+                'adc': h.get('adc', {}).get('channel_map') or [],
+                'weather': wx.get('input_map') or [],
+            }
+
+            def find_owner(source, token):
+                entries = [e for e in owners.get(source, []) if isinstance(e, dict)]
+                return (next((e for e in entries if e.get('user_id') == token), None)
+                        or next((e for e in entries if e.get('hardware_id') == token), None))
+
+            sensors = []
+            sensor_map = wx.get('sensor_map') or {}
+            for sensor_id, entry in (sensor_map.items() if isinstance(sensor_map, dict) else []):
+                if not isinstance(entry, dict):
+                    continue
+                owner = find_owner(entry.get('source'), entry.get('source_id'))
+                sensors.append({
+                    'sensor_id': sensor_id,
+                    'field': WEATHER_FIELD_BY_SENSOR.get(sensor_id, sensor_id),
+                    'source': entry.get('source'),
+                    'source_id': entry.get('source_id'),
+                    'friendly': (owner or {}).get('friendly') or entry.get('source_id') or sensor_id,
+                    'enabled': bool(entry.get('enabled', False)),
+                })
+            _log(request, 200)
+            return jsonify({'sensors': sensors, 'count': len(sensors), 'success': True}), 200
+        return _names_response(build)
+
+    @app.route('/api', methods=['GET'])
+    @app.route('/api/', methods=['GET'])
+    def api_index():
+        """List every API endpoint with its method, auth requirement and description."""
+        endpoints = []
+        for rule in app.url_map.iter_rules():
+            if not rule.rule.startswith('/api') or rule.rule in ('/api/',):
+                continue
+            view = app.view_functions[rule.endpoint]
+            doc = (view.__doc__ or '').strip().splitlines()
+            for method in sorted(rule.methods - {'HEAD', 'OPTIONS'}):
+                endpoints.append({
+                    'method': method,
+                    'path': rule.rule,
+                    'auth': bool(getattr(view, 'requires_token', False)),
+                    'description': doc[0].strip() if doc else '',
+                })
+        endpoints.sort(key=lambda e: (e['path'], e['method']))
+        _log(request, 200)
+        return jsonify({'service': 'api', 'version': VERSION, 'endpoints': endpoints}), 200
+
+    # ===============================
     # Weather data endpoint
     # ===============================
 
@@ -766,6 +1021,8 @@ def create_app(config_path=None, log_level=None, token=None):
     @require_token
     def get_weather():
         """
+        Latest weather reading, or the last N (?last=) from the CSV file.
+
         GET /api/weather               - latest reading (live from the
                                           weather handler's socket, if
                                           reachable; otherwise the last

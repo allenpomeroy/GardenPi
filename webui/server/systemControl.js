@@ -23,7 +23,7 @@
 // the only way back is an ssh session.
 //
 // Shutdown does NOT call systemctl poweroff / shutdown directly. It runs
-// scripts/pijuice-safe-shutdown.py, which first arms the PiJuice (wake up
+// bin/pijuice-safe-shutdown.py, which first arms the PiJuice (wake up
 // on charge, cut the 5V rail 60s later) and then runs
 // `sudo shutdown -h now` itself -- without that arming step the PiJuice
 // never turns the Pi back on after a power outage.
@@ -51,7 +51,7 @@ const SHUTDOWN_ARGS = ['-h', 'now'];
 // comes from the pijuice-base apt package, and the script's shebang is
 // /usr/bin/python3. Invoked explicitly so the file's exec bit doesn't matter.
 const PYTHON = '/usr/bin/python3';
-const PIJUICE_SHUTDOWN_SCRIPT = process.env.GARDENPI_PIJUICE_SHUTDOWN_SCRIPT || '/opt/gardenpi/scripts/pijuice-safe-shutdown.py';
+const PIJUICE_SHUTDOWN_SCRIPT = process.env.GARDENPI_PIJUICE_SHUTDOWN_SCRIPT || '/opt/gardenpi/bin/pijuice-safe-shutdown.py';
 // Read-only PiJuice check, run before shutting down: proves the module
 // imports, the I2C bus is accessible to this user, and the PiJuice at
 // 0x14 answers. If any of that fails, the arming step in the shutdown

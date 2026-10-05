@@ -7,7 +7,7 @@
 //   POST /api/system/services/:unit/restart     restart one unit
 //   GET  /api/system/network                    this controller's operational IP (server/networkInfo.js)
 //   POST /api/system/reboot                     reboot the Pi
-//   POST /api/system/shutdown                   power off the Pi via scripts/pijuice-safe-shutdown.py
+//   POST /api/system/shutdown                   power off the Pi via bin/pijuice-safe-shutdown.py
 //
 // All mounted behind requireAuth (server/index.js). See server/systemControl.js
 // for the sudo model. There is intentionally no "stop" endpoint.

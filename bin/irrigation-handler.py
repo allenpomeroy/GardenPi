@@ -2,6 +2,20 @@
 #
 # irrigation-handler.py
 #
+# v5.1 2026/10/02
+# - hardware fault tracking: an I2C error (OSError, e.g. "[Errno 121]
+#   Remote I/O error" when the power controller's MCP23017 has lost power)
+#   while reading or writing a relay now puts the controller in a "faulted"
+#   state. The error LED is lit once on entry to that state instead of on
+#   every failing command - so the API's /api/health probe (which sends
+#   "status") no longer spawns a leds.py subprocess, and adds up to 5s of
+#   latency, on every poll while the hardware is down.
+# - recovery: the first relay read/write that succeeds after a fault clears
+#   it, logs the recovery, and restores the irrigationrun LED (blue), which
+#   turns the red error LED off. Previously the red LED stayed lit after
+#   power came back until someone happened to switch a valve.
+# - the safety auto-off timer and shutdown_all_valves() now catch and
+#   report I2C errors too, instead of dying silently in a timer thread.
 # v5.0 2026/08/27
 # - terminology: garden.json's handlers.irrigation.relay_name_map is
 #   replaced by handlers.irrigation.relay_map (a list of {hardware_id,
@@ -85,7 +99,7 @@ from garden_config import (
 # Constants
 # --------------------------
 
-VERSION = "5.0"
+VERSION = "5.1"
 
 # The only hardcoded default kept: where to find garden.json. Every other
 # value below must be present in the config file - see garden_config.py.
@@ -224,6 +238,11 @@ class IrrigationController:
         # Valve safety timers: hardware_id -> Timer
         self._valve_timers = {}
         self._timer_lock = threading.Lock()
+        # Hardware fault state: set on an I2C error, cleared by the next
+        # successful relay read/write. Guarded by its own lock because the
+        # safety auto-off timers touch hardware from other threads.
+        self._hw_fault = False
+        self._fault_lock = threading.Lock()
         self.initialize_system()
 
     def initialize_system(self):
@@ -263,6 +282,28 @@ class IrrigationController:
             indicate_error()
             raise
 
+    def _hw_failed(self, err):
+        """Record a relay I/O failure. Lights the error LED only on the
+        transition into the faulted state."""
+        with self._fault_lock:
+            first = not self._hw_fault
+            self._hw_fault = True
+        if first:
+            log.error(f"Relay hardware fault: {err}")
+            indicate_error()
+        else:
+            log.debug(f"Relay hardware still faulted: {err}")
+
+    def _hw_ok(self):
+        """Record a successful relay I/O. On the transition out of the
+        faulted state, restore the normal irrigation LED."""
+        with self._fault_lock:
+            recovered = self._hw_fault
+            self._hw_fault = False
+        if recovered:
+            log.warning("Relay hardware recovered - clearing error indicator")
+            indicate_irrigationrun()
+
     def _cancel_valve_timer(self, hardware_id):
         """Cancel any existing safety timer for a relay"""
         with self._timer_lock:
@@ -287,9 +328,15 @@ class IrrigationController:
         def auto_off():
             log.warning(f"SAFETY: Auto-closing valve {hardware_id} after "
                         f"{self.max_valve_run_time}s")
-            with self._hw_lock:
-                self.pins[hardware_id].value = False
-            indicate_valve_off()
+            try:
+                with self._hw_lock:
+                    self.pins[hardware_id].value = False
+            except OSError as e:
+                log.critical(f"SAFETY: could not auto-close {hardware_id}: {e}")
+                self._hw_failed(e)
+            else:
+                self._hw_ok()
+                indicate_valve_off()
             with self._timer_lock:
                 self._valve_timers.pop(hardware_id, None)
 
@@ -325,6 +372,7 @@ class IrrigationController:
                         return json.dumps({"error": f"Unknown relay: {parts[1]}"})
                     with self._hw_lock:
                         val = self.pins[hardware_id].value
+                    self._hw_ok()
                     status_value = "on" if val else "off"
                     return json.dumps({display_id(self.id_map, hardware_id): status_value})
                 else:
@@ -333,6 +381,7 @@ class IrrigationController:
                             display_id(self.id_map, hardware_id): ("on" if pin.value else "off")
                             for hardware_id, pin in self.pins.items()
                         }
+                    self._hw_ok()
                     return json.dumps(status)
 
             hardware_id = resolve_id(self.id_map, cmd)
@@ -355,6 +404,7 @@ class IrrigationController:
                         })
                     with self._hw_lock:
                         self.pins[hardware_id].value = True
+                    self._hw_ok()
                     self._start_valve_timer(hardware_id)
                     indicate_valve_on(valve_index)
                     log.info(f"Valve {relay_label} ({hardware_id}) turned on")
@@ -369,6 +419,7 @@ class IrrigationController:
                 elif action == "off":
                     with self._hw_lock:
                         self.pins[hardware_id].value = False
+                    self._hw_ok()
                     self._cancel_valve_timer(hardware_id)
                     indicate_valve_off()
                     log.info(f"Valve {relay_label} ({hardware_id}) turned off")
@@ -384,6 +435,11 @@ class IrrigationController:
             else:
                 return json.dumps({"error": f"Unknown command or relay: {cmd}"})
 
+        except OSError as e:
+            # I2C/bus failure talking to the relay MCP23017 - see _hw_failed
+            self._hw_failed(e)
+            return json.dumps({"error": f"Relay hardware error: {str(e)}"})
+
         except Exception as e:
             log.error(f"Command handling error: {str(e)}")
             indicate_error()
@@ -394,8 +450,11 @@ class IrrigationController:
         log.warning("Shutting down all valves")
         with self._hw_lock:
             for hardware_id, pin in self.pins.items():
-                pin.value = False
                 self._cancel_valve_timer(hardware_id)
+                try:
+                    pin.value = False
+                except OSError as e:
+                    log.error(f"Could not turn off {hardware_id} during shutdown: {e}")
 
 
 # --------------------------

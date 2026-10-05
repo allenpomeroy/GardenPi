@@ -58,7 +58,7 @@ As of 2026/09/23
     needed; `install-gardenpi.sh` runs it.
 - 2026/09/23 System Reboot and Shut down buttons (typed confirmation; all
   valves/pumps are turned off first). Shut down runs
-  `scripts/pijuice-safe-shutdown.py` so the PiJuice powers the Pi back on
+  `bin/pijuice-safe-shutdown.py` so the PiJuice powers the Pi back on
   when external power returns; refused if the PiJuice doesn't answer.
 - 2026/09/23 install-gardenpi.sh: runs from any directory; the missing
   `add-remove-logs-crontab.sh` now exists.

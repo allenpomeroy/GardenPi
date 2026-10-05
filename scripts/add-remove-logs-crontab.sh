@@ -13,6 +13,8 @@
 # Idempotent: an existing entry for remove-old-logs.py is replaced, never
 # duplicated.
 #
+# v1.2 2026/10/04 - remove-old-logs.py moved from scripts/ to bin/; re-run this
+#   script to repoint an existing crontab entry (the old one is replaced)
 # v1.1 2026/09/25 - installs cron if it's missing; default user is garden.json's config.application_user
 #   (via gardenpi-env.sh) instead of a hard-coded pi
 # v1.0 2026/09/23 - initial version (install-gardenpi.sh called this
@@ -22,7 +24,7 @@ set -euo pipefail
 
 . "$(dirname "$(readlink -f "$0")")/gardenpi-env.sh"
 RUN_AS_USER="$GARDENPI_USER"   # --user overrides
-SCRIPT="/opt/gardenpi/scripts/remove-old-logs.py"
+SCRIPT="/opt/gardenpi/bin/remove-old-logs.py"
 SCHEDULE="17 3 * * *"   # 03:17 daily
 
 while [ $# -gt 0 ]; do
